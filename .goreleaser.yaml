@@ -61,25 +61,25 @@ builds:
     goarch:
       - amd64
   
-  - id: windows-arm64
-    main: ./
-    binary: rubixgoplatform
-    env:
-      - CC=aarch64-w64-mingw32-gcc
-    goos:
-      - linux
-    goarch:
-      - arm64
+  # - id: windows-arm64
+  #   main: ./
+  #   binary: rubixgoplatform
+  #   env:
+  #     - CC=aarch64-w64-mingw32-gcc
+  #   goos:
+  #     - linux
+  #   goarch:
+  #     - arm64
 
-  - id: windows-386
-    main: ./
-    binary: rubixgoplatform
-    env:
-      - CC=i686-w64-mingw32-gcc
-    goos:
-      - windows
-    goarch:
-      - 386
+  # - id: windows-386
+  #   main: ./
+  #   binary: rubixgoplatform
+  #   env:
+  #     - CC=i686-w64-mingw32-gcc
+  #   goos:
+  #     - windows
+  #   goarch:
+  #     - 386
 
   
   
