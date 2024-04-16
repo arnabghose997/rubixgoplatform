@@ -12,6 +12,8 @@ builds:
   - id: ubuntu-amd64
     main: ./
     binary: rubixgoplatform
+    env:
+      - CC=x86_64-linux-gnu-gcc
     goos:
       - linux
     goarch:
@@ -20,6 +22,8 @@ builds:
   - id: ubuntu-arm64
     main: ./
     binary: rubixgoplatform
+    env:
+      - CC=aarch64-linux-gnu-gcc
     goos:
       - linux
     goarch:
@@ -28,6 +32,9 @@ builds:
   - id: darwin-amd64
     main: ./
     binary: rubixgoplatform
+    env:
+      - CC=o64-clang
+      - CGO_LDFLAGS=-L/lib
     goos:
       - darwin
     goarch:
@@ -36,6 +43,9 @@ builds:
   - id: darwin-arm64
     main: ./
     binary: rubixgoplatform
+    env:
+      - CC=oa64-clang
+      - CGO_LDFLAGS=-L/lib
     goos:
       - darwin
     goarch:
