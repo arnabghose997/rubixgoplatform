@@ -51,12 +51,6 @@ builds:
     goarch:
       - arm64
   
-  - id: windows
-    main: ./
-    binary: rubixgoplatform
-    goos:
-      - windows
-    
 archives:
   - id: release-archives
     format: tar.gz
