@@ -60,12 +60,22 @@ builds:
       - windows
     goarch:
       - amd64
-    archive:
-      format: zip
 
 archives:
-  - id: release-archives
+  - id: linux-darwin-archive
+    builds:
+      - ubuntu-amd64
+      - ubuntu-arm64
+      - darwin-amd64
+      - darwin-arm64
     format: tar.gz
+    wrap_in_directory: true
+    name_template: "{{ .Binary }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+
+  - id: windows-archive
+    builds:
+      - windows-amd64
+    format: zip
     wrap_in_directory: true
     name_template: "{{ .Binary }}-v{{ .Version }}-{{ .Os }}-{{ .Arch }}"
 
