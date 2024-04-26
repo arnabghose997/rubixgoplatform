@@ -46,6 +46,7 @@ const (
 	APIGetTokenNumber         string = "/api/get-token-number"
 	APIGetMigratedTokenStatus string = "/api/get-Migrated-token-status"
 	APISyncDIDArbitration     string = "/api/sync-did-arbitration"
+	APIGetPartTokensFromPeers string = "/api/get-part-tokens-from-peers"
 )
 
 const (
@@ -323,6 +324,7 @@ func (c *Core) SetupCore() error {
 	c.SetupToken()
 	c.QuroumSetup()
 	c.PinService()
+	c.PartTokenService()
 	return nil
 }
 

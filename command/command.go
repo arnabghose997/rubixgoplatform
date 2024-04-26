@@ -77,6 +77,7 @@ const (
 	GetTokenBlock                  string = "gettokenblock"
 	GetSmartContractData           string = "getsmartcontractdata"
 	ReleaseAllLockedTokensCmd      string = "releaseAllLockedTokens"
+	FetchPartTokens                string = "fetchPartTokens"
 )
 
 var commands = []string{VersionCmd,
@@ -121,6 +122,7 @@ var commands = []string{VersionCmd,
 	DumpSmartContractTokenChainCmd,
 	GetTokenBlock,
 	GetSmartContractData,
+	FetchPartTokens,
 }
 var commandsHelp = []string{"To get tool version",
 	"To get help",
@@ -163,9 +165,12 @@ var commandsHelp = []string{"To get tool version",
 	"This command will subscribe to a smart contract token",
 	"This command will dump the smartcontract token chain",
 	"This command gets token block",
-	"This command gets the smartcontract data from latest block"}
+	"This command gets the smartcontract data from latest block",
+	"This command fetches all part tokens and the sum for an address",
+}
 
 type Command struct {
+	address            string
 	cfg                config.Config
 	c                  *client.Client
 	sc                 *contract.Contract
@@ -428,6 +433,7 @@ func Run(args []string) {
 	flag.StringVar(&cmd.smartContractData, "sctData", "data", "Smart contract execution info")
 	flag.StringVar(&cmd.executorAddr, "executorAddr", "", "Smart contract Executor Address")
 	flag.BoolVar(&cmd.latest, "latest", false, "flag to set latest")
+	flag.StringVar(&cmd.address, "address", "", "address in peerId.Did format to fetch part tokens")
 
 	if len(os.Args) < 2 {
 		fmt.Println("Invalid Command")
@@ -570,6 +576,8 @@ func Run(args []string) {
 		cmd.executeSmartcontract()
 	case ReleaseAllLockedTokensCmd:
 		cmd.releaseAllLockedTokens()
+	case FetchPartTokens:
+		cmd.fetchPartTokensCmd()
 	default:
 		cmd.log.Error("Invalid command")
 	}

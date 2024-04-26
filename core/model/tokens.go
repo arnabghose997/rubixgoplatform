@@ -1,5 +1,7 @@
 package model
 
+import "github.com/rubixchain/rubixgoplatform/core/wallet"
+
 const (
 	RBTType string = "RBT"
 	DTType  string = "DT"
@@ -18,6 +20,25 @@ type RBTTransferRequest struct {
 	Comment    string  `json:"comment"`
 	Type       int     `json:"type"`
 	Password   string  `json:"password"`
+}
+
+type FetchPartTokensRequest struct {
+	Address string `json:"address"`
+}
+
+type FetchPartTokensResponse struct {
+	BasicResponse
+	Tokens []string `json:"tokens"`
+	Amount float64  `json:"amount"`
+}
+
+type GetPartTokensFromPeersRequest struct {
+	Did string `json:"did"`
+}
+
+type GetPartTokensFromPeersResponse struct {
+	BasicResponse
+	Tokens []wallet.Token `json:"tokens"`
 }
 
 type RBTTransferReply struct {

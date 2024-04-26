@@ -471,6 +471,18 @@ func (w *Wallet) CommitTokens(did string, rbtTokens []string) error {
 	return nil
 }
 
+func (w *Wallet) ReadAllPartTokens(did string) ([]Token, error) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	var t []Token
+	err := w.s.Read(TokenStorage, &t, "did=? AND token_value>? AND token_value<? ORDER BY token_value DESC", did, Zero, One)
+	if err != nil {
+		w.log.Error("Failed to get tokens", "err", err)
+		return nil, err
+	}
+	return t, nil
+}
+
 func (w *Wallet) GetAllPartTokens(did string) ([]Token, error) {
 	w.l.Lock()
 	defer w.l.Unlock()
