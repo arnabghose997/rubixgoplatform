@@ -11,18 +11,24 @@ def check_if_all_nodes_are_running(n_nodes: int, base_server_port: int):
     retries = 10
     interval_between_retries = 60
     
-    for _ in range(retries):
+    for r in range(retries):
+        print(f"Retry Count: {r}")
         success_counter = 0
 
         for i in range(n_nodes):
-            url = f"http://localhost:{base_server_port + int(i)}/api/getalldid"
+            port = base_server_port + int(i)
+            url = f"http://localhost:{port}/api/getalldid"
             try:
+                print(f"Sending GET request to URL: {url}")
                 response = requests.get(url)
                 if response.status_code == 200:
                     success_counter += 1
+                    print(f"Server with port {port} is running successfully | Retry: {r}")
                 else:
+                    print(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully | Retry: {r}")
                     continue
             except:
+                print(f"ConnectionError | Server with port {port} is NOT running successfully | Retry: {r}")
                 continue
 
         if success_counter == n_nodes:

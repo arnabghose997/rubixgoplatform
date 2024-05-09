@@ -24,4 +24,4 @@ jobs:
             
             - name: Run tests
               run: |
-                cd tests && ls && python3 run.py
+                cd tests && ls && python3 -u run.py
