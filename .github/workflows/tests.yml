@@ -22,7 +22,7 @@ jobs:
               uses: actions/setup-python@v5
               with:
                 python-version: '3.11'
-            
+
             - name: Install test dependency
               run: |
                 pip3 install requests
@@ -54,6 +54,9 @@ jobs:
               run: |
                 pip3 install requests
             
+            - name: MacOS install tmux
+              run: brew install tmux
+
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
