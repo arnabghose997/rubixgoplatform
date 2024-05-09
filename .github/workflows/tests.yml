@@ -27,9 +27,21 @@ jobs:
               run: |
                 pip3 install requests
             
+            - name: Setup SSh for actor
+              uses: alexellis/setup-sshd-actor@master
+            
+            - name: Connect to the actuated SSH gateway
+              uses: self-actuated/connect-ssh-gateway@master
+              with:
+                sshGatewayAddr: ${{ secrets.SSH_GATEWAY }}
+                secure: true
+
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
+
+            - name: Sleep for some time
+              run: sleep 600
 
     test-macos:
         name: "Test - MacOS Environment"

@@ -53,7 +53,7 @@ def setup_rubix_nodes(node_count: int = 0, node_prefix_str: str = "node"):
 
     # Start rubix servers
     loop_start_idx, loop_end_idx = 0, node_count 
-    offset = 4
+    offset = 0
 
     for i in range(loop_start_idx, loop_end_idx):
         k = (i + offset) if node_prefix_str == "node" else (10 + i + offset)
