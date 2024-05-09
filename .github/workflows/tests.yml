@@ -21,12 +21,52 @@ jobs:
             - name: Install test dependency
               run: |
                 pip3 install requests
-
-            - name: (DEBUG) Check program on port 20003
-              run: |
-                lsof -i :20003
             
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
 
+    test-macos:
+        name: "Test - MacOS Environment"
+        runs-on: macos-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
+
+            - name: Setup Python v3.11
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+            
+            - name: Install test dependency
+              run: |
+                pip3 install requests
+            
+            - name: Run tests
+              run: |
+                cd tests && ls && python3 -u run.py
+
+    test-windows:
+        name: "Test - Windows Environment"
+        runs-on: windows-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                fetch-depth: 0
+
+            - name: Setup Python v3.11
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+            
+            - name: Install test dependency
+              run: |
+                pip3 install requests
+            
+            - name: Run tests
+              run: |
+                cd tests && ls && python3 -u run.py
+    
