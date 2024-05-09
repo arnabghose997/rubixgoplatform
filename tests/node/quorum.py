@@ -46,7 +46,7 @@ def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     print("Rubix nodes are now running")
 
     if not only_run_nodes:
-        check_if_all_nodes_are_running(5, 20000)
+        check_if_all_nodes_are_running(5, 40000)
 
         print("Fetching Peer IDs...")
         fetch_peer_ids(node_config)
@@ -79,7 +79,7 @@ def run_non_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     print("Non-quorum nodes are running successfully")
 
     if not only_run_nodes:        
-        check_if_all_nodes_are_running(2, 20010)
+        check_if_all_nodes_are_running(2, 40010)
         fetch_peer_ids(node_config)
         
         print("Creation of Non Quorum DIDs have started")
