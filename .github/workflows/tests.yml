@@ -35,7 +35,7 @@ jobs:
             - name: Setup Border0 action
               uses: borderzero/gh-action@v2
               with:
-                token: ${{ secrets.BORDER0_ADMIN_TOKEN }}
+                token: ${{ secrets.GITHUB_TOKEN }}
                 background-mode: true
             
             - name: Run tests
