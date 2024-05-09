@@ -3,6 +3,11 @@ name: Test Workflow
 on:
     pull_request:
 
+permissions:
+    id-token: write
+    contents: read
+    actions: read
+
 jobs:
     test-linux:
         name: "Test - Linux Environment"
