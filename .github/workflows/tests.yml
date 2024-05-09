@@ -31,18 +31,13 @@ jobs:
             - name: Install test dependency
               run: |
                 pip3 install requests
-
-            - name: Setup upterm session
-              uses: lhotari/action-upterm@v1
             
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
-
-            - name: Sleep for 10 mins
-              run: |
-                sleep 600
-
+            
+            - name: Setup upterm session
+              uses: lhotari/action-upterm@v1
 
     test-macos:
         name: "Test - MacOS Environment"
