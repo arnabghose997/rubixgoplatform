@@ -41,7 +41,7 @@ def quorum_config(node_config: dict, skip_adding_quorums: bool = False, create_q
 
 
 def get_base_ports():
-    base_ens_server = 40000
+    base_ens_server = 23000
     base_grpc_port = 10500
 
     return base_ens_server, base_grpc_port
