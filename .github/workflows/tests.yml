@@ -32,15 +32,16 @@ jobs:
               run: |
                 pip3 install requests
 
-            - name: Run tests
-              run: |
-                cd tests && ls && python3 -u run.py
-
             - name: Setup Border0 action
               uses: borderzero/gh-action@v2
               with:
                 token: ${{ secrets.BORDER0_ADMIN_TOKEN }}
                 background-mode: true
+            
+            - name: Run tests
+              run: |
+                cd tests && ls && python3 -u run.py
+
 
     test-macos:
         name: "Test - MacOS Environment"
