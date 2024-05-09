@@ -8,7 +8,7 @@ import requests
 
 def check_if_all_nodes_are_running(n_nodes: int, base_server_port: int):
     print("Check if all servers are running...")
-    retries = 10
+    retries = 3
     interval_between_retries = 60
     
     for r in range(retries):
