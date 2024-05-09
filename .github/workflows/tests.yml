@@ -13,6 +13,15 @@ jobs:
               with:
                 fetch-depth: 0
 
+            - name: Setup Python v3.11
+              uses: actions/setup-python@v5
+              with:
+                python-version: '3.11'
+            
+            - name: Install test dependency
+              run: |
+                pip3 install requests
+            
             - name: Run tests
               run: |
                 cd tests && python3 run.py
