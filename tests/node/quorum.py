@@ -4,6 +4,33 @@ import time
 from .actions import setup_rubix_nodes, fetch_peer_ids, create_and_register_did, \
     fund_dids_with_rbt, quorum_config
 from .utils import save_to_json
+import requests
+
+def check_if_all_nodes_are_running(n_nodes: int, base_server_port: int):
+    print("Check if all servers are running...")
+    retries = 10
+    interval_between_retries = 60
+    
+    for _ in range(retries):
+        success_counter = 0
+
+        for i in range(n_nodes):
+            url = f"http://localhost:{base_server_port + int(i)}/api/getalldid"
+            try:
+                response = requests.get(url)
+                if response.status_code == 200:
+                    success_counter += 1
+                else:
+                    continue
+            except:
+                continue
+
+        if success_counter == n_nodes:
+            return
+        else:
+            time.sleep(interval_between_retries)
+    
+    raise Exception(f"Not all servers were found to be running after {retries} at {interval_between_retries} sec interval")
 
 def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config_path = "./quorum_config.json"
@@ -13,9 +40,9 @@ def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     print("Rubix nodes are now running")
 
     if not only_run_nodes:
-        print("Waiting 60 seconds before fetching all node peer IDs............")
-        time.sleep(60)
+        check_if_all_nodes_are_running(5, 20000)
 
+        print("Fetching Peer IDs...")
         fetch_peer_ids(node_config)
 
         print("Creation and registeration of quorum DIDs have started")
@@ -46,8 +73,7 @@ def run_non_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     print("Non-quorum nodes are running successfully")
 
     if not only_run_nodes:        
-        print("Waiting 30 seconds before fetching all node peer IDs............")
-        time.sleep(30)
+        check_if_all_nodes_are_running(2, 20010)
         fetch_peer_ids(node_config)
         
         print("Creation of Non Quorum DIDs have started")
