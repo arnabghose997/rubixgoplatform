@@ -21,11 +21,12 @@ jobs:
             - name: Install test dependency
               run: |
                 pip3 install requests
+
+            - name: (DEBUG) Check program on port 20003
+              run: |
+                lsof -i: 20003
             
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
 
-            - name: (DEBUG) Check program on port 20003
-              run: |
-                lsof -i: 20003
