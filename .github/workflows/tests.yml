@@ -32,15 +32,16 @@ jobs:
               run: |
                 pip3 install requests
 
-            - name: Setup Border0 action
-              uses: borderzero/gh-action@v2
-              with:
-                token: ${{ secrets.GITHUB_TOKEN }}
-                background-mode: true
+            - name: Setup upterm session
+              uses: lhotari/action-upterm@v1
             
             - name: Run tests
               run: |
                 cd tests && ls && python3 -u run.py
+
+            - name: Sleep for 10 mins
+              run: |
+                sleep 600
 
 
     test-macos:
