@@ -41,7 +41,7 @@ def quorum_config(node_config: dict, skip_adding_quorums: bool = False, create_q
 
 
 def get_base_ports():
-    base_ens_server = 23000
+    base_ens_server = 20000
     base_grpc_port = 10500
 
     return base_ens_server, base_grpc_port
@@ -53,9 +53,10 @@ def setup_rubix_nodes(node_count: int = 0, node_prefix_str: str = "node"):
 
     # Start rubix servers
     loop_start_idx, loop_end_idx = 0, node_count 
-    
+    offset = 4
+
     for i in range(loop_start_idx, loop_end_idx):
-        k = i if node_prefix_str == "node" else (10+i)
+        k = (i + offset) if node_prefix_str == "node" else (10 + i + offset)
 
         ens_server = base_ens_server + k
         print(f"Running server at port: {ens_server}")
