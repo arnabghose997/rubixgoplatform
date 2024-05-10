@@ -3,7 +3,31 @@ import os
 import re
 import platform
 import time
-from .quorum import check_if_all_nodes_are_running
+import requests
+
+
+def get_base_port():
+    base_ens_server = 20000
+    base_grpc_port = 10500
+
+    return base_ens_server, base_grpc_port
+
+def check_if_all_nodes_are_running(server_idx):
+    print("Check if all servers are running...")
+    
+    base_server, _ = get_base_port()
+    port = base_server + int(server_idx)
+    url = f"http://localhost:{port}/api/getalldid"
+    try:
+        print(f"Sending GET request to URL: {url}")
+        response = requests.get(url)
+        if response.status_code == 200:
+            print(f"Server with port {port} is running successfully")
+        else:
+            raise Exception(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully")
+    except:
+        raise Exception(f"ConnectionError | Server with port {port} is NOT running successfully")
+
 
 def is_windows_os():
     os_name = platform.system()

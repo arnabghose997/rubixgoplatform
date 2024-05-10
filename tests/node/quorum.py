@@ -6,22 +6,6 @@ from .actions import setup_rubix_nodes, fetch_peer_ids, create_and_register_did,
 from .utils import save_to_json
 import requests
 
-def check_if_all_nodes_are_running(server_idx):
-    print("Check if all servers are running...")
-    
-    base_server, _ = get_base_ports()
-    port = base_server + int(server_idx)
-    url = f"http://localhost:{port}/api/getalldid"
-    try:
-        print(f"Sending GET request to URL: {url}")
-        response = requests.get(url)
-        if response.status_code == 200:
-            print(f"Server with port {port} is running successfully")
-        else:
-            raise Exception(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully")
-    except:
-        raise Exception(f"ConnectionError | Server with port {port} is NOT running successfully")
-
 def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config_path = "./quorum_config.json"
     
