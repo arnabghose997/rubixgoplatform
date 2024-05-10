@@ -10,7 +10,7 @@ def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config_path = "./quorum_config.json"
     
     print("Running Rubix nodes......")
-    node_config = setup_rubix_nodes(5)
+    node_config = setup_rubix_nodes(1)
     print("Rubix nodes are now running")
 
     if not only_run_nodes:
