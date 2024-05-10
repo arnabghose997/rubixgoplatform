@@ -7,7 +7,7 @@ import requests
 
 
 def get_base_port():
-    base_ens_server = 20003
+    base_ens_server = 20000
     base_grpc_port = 10500
 
     return base_ens_server, base_grpc_port
