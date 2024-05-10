@@ -2,6 +2,8 @@ import subprocess
 import os
 import re
 import platform
+import time
+from .quorum import check_if_all_nodes_are_running
 
 def is_windows_os():
     os_name = platform.system()
@@ -58,6 +60,14 @@ def cmd_run_rubix_servers(node_name, server_port_idx, grpc_port):
     _, code = run_command(cmd_string)
     if code != 0:
         raise Exception("Error occurred while run the command: " + cmd_string)
+    
+    print("Waiting for 60 seconds before checking if its running....")
+    time.sleep(60)
+    try:
+        check_if_all_nodes_are_running(server_port_idx)
+    except Exception as e:
+        raise e
+    
     os.chdir("../tests")
 
 def cmd_create_did(server_port, grpc_port):

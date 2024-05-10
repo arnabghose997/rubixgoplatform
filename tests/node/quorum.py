@@ -2,41 +2,25 @@ import pprint
 import time
 
 from .actions import setup_rubix_nodes, fetch_peer_ids, create_and_register_did, \
-    fund_dids_with_rbt, quorum_config
+    fund_dids_with_rbt, quorum_config, get_base_ports
 from .utils import save_to_json
 import requests
 
-def check_if_all_nodes_are_running(n_nodes: int, base_server_port: int):
+def check_if_all_nodes_are_running(server_idx):
     print("Check if all servers are running...")
-    retries = 3
-    interval_between_retries = 60
     
-    for r in range(retries):
-        print(f"Retry Count: {r}")
-        success_counter = 0
-
-        for i in range(n_nodes):
-            port = base_server_port + int(i)
-            url = f"http://localhost:{port}/api/getalldid"
-            try:
-                print(f"Sending GET request to URL: {url}")
-                response = requests.get(url)
-                if response.status_code == 200:
-                    success_counter += 1
-                    print(f"Server with port {port} is running successfully | Retry: {r}")
-                else:
-                    print(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully | Retry: {r}")
-                    continue
-            except:
-                print(f"ConnectionError | Server with port {port} is NOT running successfully | Retry: {r}")
-                continue
-
-        if success_counter == n_nodes:
-            return
+    base_server, _ = get_base_ports()
+    port = base_server + int(server_idx)
+    url = f"http://localhost:{port}/api/getalldid"
+    try:
+        print(f"Sending GET request to URL: {url}")
+        response = requests.get(url)
+        if response.status_code == 200:
+            print(f"Server with port {port} is running successfully")
         else:
-            time.sleep(interval_between_retries)
-    
-    raise Exception(f"Not all servers were found to be running after {retries} at {interval_between_retries} sec interval")
+            raise Exception(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully")
+    except:
+        raise Exception(f"ConnectionError | Server with port {port} is NOT running successfully")
 
 def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config_path = "./quorum_config.json"
@@ -46,8 +30,6 @@ def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     print("Rubix nodes are now running")
 
     if not only_run_nodes:
-        check_if_all_nodes_are_running(5, 20000)
-
         print("Fetching Peer IDs...")
         fetch_peer_ids(node_config)
 
@@ -78,8 +60,7 @@ def run_non_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config = setup_rubix_nodes(2, "nodeNq")
     print("Non-quorum nodes are running successfully")
 
-    if not only_run_nodes:        
-        check_if_all_nodes_are_running(2, 20010)
+    if not only_run_nodes:
         fetch_peer_ids(node_config)
         
         print("Creation of Non Quorum DIDs have started")

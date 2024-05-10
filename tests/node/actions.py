@@ -53,10 +53,9 @@ def setup_rubix_nodes(node_count: int = 0, node_prefix_str: str = "node"):
 
     # Start rubix servers
     loop_start_idx, loop_end_idx = 0, node_count 
-    offset = 0
 
     for i in range(loop_start_idx, loop_end_idx):
-        k = (i + offset) if node_prefix_str == "node" else (10 + i + offset)
+        k = i if node_prefix_str == "node" else (10 + i)
 
         ens_server = base_ens_server + k
         print(f"Running server at port: {ens_server}")

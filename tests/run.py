@@ -160,7 +160,7 @@ if __name__=='__main__':
             os.chdir("./tests")
         
         run_quorum_nodes(QUORUM_CONFIG_FILE, run_nodes_only, skip_adding_quorums=skip_adding_quorums)
-    
+
         non_quorum_node_config = run_non_quorum_nodes(NON_QUORUM_CONFIG_FILE, run_nodes_only, skip_adding_quorums=skip_adding_quorums)
     
     # Run RBT Transfer related tests
