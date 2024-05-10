@@ -74,6 +74,10 @@ def run_command(cmd_string, is_output_from_stderr=False):
 def cmd_run_rubix_servers(node_name, server_port_idx, grpc_port):
     os.chdir("../" + get_build_dir())
     
+    if server_port_idx == 3:
+        raise Exception("debug here")
+        
+
     cmd_string = ""
     if is_windows_os():
         #cmd = f".\\rubixgoplatform run -p {node_name} -n {server_port_idx} -s -testNet -grpcPort {grpc_port}"
