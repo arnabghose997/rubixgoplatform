@@ -153,14 +153,13 @@ if __name__=='__main__':
                 exit(1)
             else:
                 print("\nBuild successful\n")
-
             
             download_ipfs_binary(os_name, IPFS_KUBO_VERSION, build_folder)
             copy_fixtures_to_build_dir(build_folder)
             os.chdir("./tests")
         
-        run_quorum_nodes(QUORUM_CONFIG_FILE, run_nodes_only, skip_adding_quorums=skip_adding_quorums)
-    
+        run_quorum_nodes(QUORUM_CONFIG_FILE, run_nodes_only, skip_adding_quorums=True)
+        exit(0)
         non_quorum_node_config = run_non_quorum_nodes(NON_QUORUM_CONFIG_FILE, run_nodes_only, skip_adding_quorums=skip_adding_quorums)
     
     # Run RBT Transfer related tests

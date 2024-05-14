@@ -36,7 +36,7 @@ jobs:
             
             - name: Add logs
               run: |
-                python3 -u pack_node_logs.py
+                cd tests && python3 -u pack_node_logs.py
      
             - name: Upload artifacts
               uses: actions/upload-artifact@v3
