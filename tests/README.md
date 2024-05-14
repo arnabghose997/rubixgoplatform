@@ -35,6 +35,15 @@ To start the test. Please NOTE that it must be run from the `tests` directory on
 python3 run.py
 ```
 
+## Running tests in Docker
+
+To run the tests in a docker Ubuntu environment, run the following:
+
+1. Build the image
+```
+
+```
+
 ### Flags
 
 The test script is equipped with CLI Parser. Following are the flags and their description

@@ -2,19 +2,17 @@ import pprint
 import time
 
 from .actions import setup_rubix_nodes, fetch_peer_ids, create_and_register_did, \
-    fund_dids_with_rbt, quorum_config, get_base_ports
+    fund_dids_with_rbt, quorum_config
 from .utils import save_to_json
-import requests
 
 def run_quorum_nodes(node_config_path, only_run_nodes, skip_adding_quorums):
     node_config_path = "./quorum_config.json"
     
     print("Running Rubix nodes......")
-    node_config = setup_rubix_nodes(1)
+    node_config = setup_rubix_nodes(5)
     print("Rubix nodes are now running")
 
     if not only_run_nodes:
-        print("Fetching Peer IDs...")
         fetch_peer_ids(node_config)
 
         print("Creation and registeration of quorum DIDs have started")
