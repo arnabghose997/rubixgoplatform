@@ -24,7 +24,7 @@ def check_if_all_nodes_are_running(server_idx):
         if response.status_code == 200:
             print(f"Server with port {port} is running successfully")
         else:
-            raise Exception(f"Failed with Status Code: {response.status_code} |  Server with port {port} is NOT running successfully")
+            raise Exception(f"Failed with Status Code: {response.status_code} | Server with port {port} is NOT running successfully")
     except:
         raise Exception(f"ConnectionError | Server with port {port} is NOT running successfully")
 
