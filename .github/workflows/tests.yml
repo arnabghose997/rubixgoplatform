@@ -35,11 +35,17 @@ jobs:
                 cd tests && ls && python3 -u run.py
             
             - name: Add logs
+              if: always()
               run: |
                 cd tests && python3 -u pack_node_logs.py
-     
+            
+            - name: Set timestamp for artifact
+              if: always()
+              run: echo "TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
             - name: Upload artifacts
               uses: actions/upload-artifact@v4
+              if: always()
               with:
-                name: log-file
+                name: artifact-log-${{ env.TIMESTAMP }}
                 path: tests/node_logs
