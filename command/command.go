@@ -33,7 +33,7 @@ const (
 )
 
 const (
-	version string = "0.0.15"
+	version string = "0.0.16"
 )
 const (
 	VersionCmd                     string = "-v"
@@ -76,7 +76,9 @@ const (
 	DumpSmartContractTokenChainCmd string = "dumpsmartcontracttokenchain"
 	GetTokenBlock                  string = "gettokenblock"
 	GetSmartContractData           string = "getsmartcontractdata"
+	GetPeerID                      string = "get-peer-id"
 	ReleaseAllLockedTokensCmd      string = "releaseAllLockedTokens"
+	CheckQuorumStatusCmd           string = "checkQuorumStatus"
 )
 
 var commands = []string{VersionCmd,
@@ -121,6 +123,8 @@ var commands = []string{VersionCmd,
 	DumpSmartContractTokenChainCmd,
 	GetTokenBlock,
 	GetSmartContractData,
+	GetPeerID,
+	CheckQuorumStatusCmd,
 }
 var commandsHelp = []string{"To get tool version",
 	"To get help",
@@ -163,7 +167,8 @@ var commandsHelp = []string{"To get tool version",
 	"This command will subscribe to a smart contract token",
 	"This command will dump the smartcontract token chain",
 	"This command gets token block",
-	"This command gets the smartcontract data from latest block"}
+	"This command gets the smartcontract data from latest block",
+	"This command will fetch the peer ID of the node"}
 
 type Command struct {
 	cfg                config.Config
@@ -237,6 +242,7 @@ type Command struct {
 	smartContractData  string
 	executorAddr       string
 	latest             bool
+	quorumAddr         string
 }
 
 func showVersion() {
@@ -428,6 +434,7 @@ func Run(args []string) {
 	flag.StringVar(&cmd.smartContractData, "sctData", "data", "Smart contract execution info")
 	flag.StringVar(&cmd.executorAddr, "executorAddr", "", "Smart contract Executor Address")
 	flag.BoolVar(&cmd.latest, "latest", false, "flag to set latest")
+	flag.StringVar(&cmd.quorumAddr, "quorumAddr", "", "Quorum Node Address to check the status of the Quorum")
 
 	if len(os.Args) < 2 {
 		fmt.Println("Invalid Command")
@@ -568,8 +575,12 @@ func Run(args []string) {
 		cmd.getSmartContractData()
 	case ExecuteSmartcontractCmd:
 		cmd.executeSmartcontract()
+	case GetPeerID:
+		cmd.peerIDCmd()
 	case ReleaseAllLockedTokensCmd:
 		cmd.releaseAllLockedTokens()
+	case CheckQuorumStatusCmd:
+		cmd.checkQuorumStatus()
 	default:
 		cmd.log.Error("Invalid command")
 	}
