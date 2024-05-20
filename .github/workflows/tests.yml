@@ -41,7 +41,7 @@ jobs:
             
             - name: Set timestamp for artifact
               if: always()
-              run: echo "TIMESTAMP=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+              run: echo "TIMESTAMP=$(date -u +'%Y-%m-%dT%H-%M-%SZ' | sed 's/:/-/g')" >> $GITHUB_ENV
 
             - name: Upload artifacts
               uses: actions/upload-artifact@v4
