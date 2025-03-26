@@ -586,10 +586,21 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			}
 			c.log.Debug("sync issue token details ", syncIssueTokenDetails)
 			if issueTypeInt == TokenChainNotSynced {
-				syncIssueTokenDetails.TokenStatus = wallet.TokenChainSyncIssue
-				c.log.Debug("sync issue token details status updated", syncIssueTokenDetails)
-				c.w.UpdateToken(syncIssueTokenDetails)
-				return nil, nil, nil, errors.New(br.Message)
+				rollBackResponse, err := c.TransactionRollBack(cr)
+				if !rollBackResponse.SenderRollbackStatus {
+					c.log.Error("sender failed to roll back, err ", err)
+					syncIssueTokenDetails.TokenStatus = wallet.TokenChainSyncIssue
+					c.log.Debug("sync issue token details status updated", syncIssueTokenDetails)
+					c.w.UpdateToken(syncIssueTokenDetails)
+				}
+				if !rollBackResponse.ReceiverRollBackStatus {
+					c.log.Error("receiver failed to roll back, err ", err)
+				}
+				if !rollBackResponse.QuorumRollBackStatus {
+					c.log.Error("quorums failed to roll back, err ", err)
+				}
+				c.log.Debug("roll back message ", rollBackResponse.Message)
+				return nil, nil, nil, errors.New(br.Message + ";" + rollBackResponse.Message)
 			}
 		}
 		if !br.Status {
@@ -2591,7 +2602,7 @@ func (c *Core) checkLockedTokens(cr *ConensusRequest, quorumList []string) error
 }
 
 func (c *Core) SenderRollBack(consensusReq *ConensusRequest) (model.BasicResponse, error) {
-	response := model.BasicResponse {
+	response := model.BasicResponse{
 		Status: false,
 	}
 	sc := contract.InitContract(consensusReq.ContractBlock, nil)
@@ -2599,18 +2610,18 @@ func (c *Core) SenderRollBack(consensusReq *ConensusRequest) (model.BasicRespons
 
 	for _, transToken := range transTokensList {
 		// pin the trans tokens again
-		ok, err := c.w.Pin(transToken.Token, wallet.OwnerRole, sc.GetSenderDID(),consensusReq.TransactionID, sc.GetSenderDID(), sc.GetReceiverDID(), sc.GetTotalRBTs())
+		ok, err := c.w.Pin(transToken.Token, wallet.OwnerRole, sc.GetSenderDID(), consensusReq.TransactionID, sc.GetSenderDID(), sc.GetReceiverDID(), sc.GetTotalRBTs())
 		if !ok {
 			c.log.Error("sender failed to pin the trans token: ", transToken.Token, "err ", err)
 			continue
 		}
 		// read trans tokens from table
-		token, err :=  c.w.ReadToken(transToken.Token)
+		token, err := c.w.ReadToken(transToken.Token)
 		if err != nil {
 			c.log.Error("failed to read trans token : ", transToken.Token, "err", err)
 		}
 		// update token status back to free
-		token.TokenStatus = wallet.TokenIsFree
+		token.TokenStatus = wallet.TokenChainSyncIssue
 		c.w.UpdateToken(token)
 	}
 

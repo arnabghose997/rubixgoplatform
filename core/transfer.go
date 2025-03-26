@@ -639,7 +639,7 @@ type RollBackResponse struct {
 	SenderRollbackStatus   bool `json:"sender_rollback_status"`
 }
 
-func (c *Core) TransactionRollBack(consensusReq *ConensusRequest, dc did.DIDCrypto) (RollBackResponse, error) {
+func (c *Core) TransactionRollBack(consensusReq *ConensusRequest) (RollBackResponse, error) {
 	response := RollBackResponse{
 		QuorumRollBackStatus:   false,
 		ReceiverRollBackStatus: false,
