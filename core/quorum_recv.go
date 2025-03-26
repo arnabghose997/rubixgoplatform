@@ -1797,3 +1797,150 @@ func (c *Core) updateTokenHashDetails(req *ensweb.Request) *ensweb.Result {
 	return c.l.RenderJSON(req, struct{}{}, http.StatusOK)
 
 }
+
+type QuorumRollBackRequest struct {
+}
+
+// quorum rolls back whenever the transaction fails
+func (c *Core) QuorumRollBackResponse(req *ensweb.Request) *ensweb.Result {
+	response := model.BasicResponse{
+		Status: false,
+	}
+	qrmdid := c.l.GetQuerry(req, "did")
+
+	var consensusReq ConensusRequest
+	err := c.l.ParseJSON(req, consensusReq)
+	if err != nil {
+		c.log.Error("failed to parse request, err", err)
+		response.Message = err.Error()
+		return c.l.RenderJSON(req, &response, http.StatusOK)
+	}
+	sc := contract.InitContract(consensusReq.ContractBlock, nil)
+	transTokensList := sc.GetTransTokenInfo()
+
+	var tokenStateHashList []string
+	for _, transToken := range transTokensList {
+		//get the latest blockId i.e. latest token state
+		block := c.w.GetLatestTokenBlock(transToken.Token, transToken.TokenType)
+		if block == nil {
+			c.log.Error("Invalid token chain block, Block is nil for token ", transToken.Token)
+			response.Message = "Invalid token chain block of token : " + transToken.Token
+			return c.l.RenderJSON(req, &response, http.StatusOK)
+		}
+		blockId, err := block.GetBlockID(transToken.Token)
+		if err != nil {
+			c.log.Error("Error fetching latest block Id of token", transToken.Token, "err", err)
+			response.Message = "Error fetching latest block Id of token : " + transToken.Token
+			return c.l.RenderJSON(req, &response, http.StatusOK)
+		}
+		//concat tokenId and BlockID
+		tokenIDTokenStateData := transToken.Token + blockId
+		tokenIDTokenStateBuffer := bytes.NewBuffer([]byte(tokenIDTokenStateData))
+
+		//add to ipfs get only the hash of the token+tokenstate
+		tokenStateHash, err := c.ipfs.Add(tokenIDTokenStateBuffer, ipfsnode.Pin(false), ipfsnode.OnlyHash(true))
+		if err != nil {
+			c.log.Error("failed to get current state hash of token", transToken.Token, "err", err)
+			response.Message = "Error fetching current state hash of token : " + transToken.Token
+			return c.l.RenderJSON(req, &response, http.StatusOK)
+		}
+		tokenStateHashList = append(tokenStateHashList, tokenStateHash)
+		// delete from sqlite3 db
+		err = c.w.RemoveTokenStateHash(tokenStateHash)
+		if err != nil {
+			c.log.Error("failed to remove token state hash of token ", transToken.Token)
+		}
+	}
+
+	// unpin all token state hashes
+	c.unPinTokenState(tokenStateHashList, qrmdid)
+
+	// unpledge pledged tokens for failed transfer
+	c.qlock.Lock()
+	pledgeDetails := c.pd[consensusReq.ReqID]
+	c.qlock.Unlock()
+
+	var pledgeTokenHashes []string = pledgeDetails.PledgedTokens[qrmdid]
+	if len(pledgeTokenHashes) == 0 {
+		c.log.Error("unable to get information about pledge tokens of quorum", qrmdid)
+		response.Message = "unable to get information about pledge tokens of quorum: " + qrmdid
+		return c.l.RenderJSON(req, &response, http.StatusOK)
+	}
+
+
+	// TODO : 
+	// 1. check if pledge block has been added
+	// 2. handle accordingly
+	// 3. make sure no credits for failed transaction
+
+
+	// Add Unpledge details to UnpledgeSequence table
+	pledgeTokensArr := strings.Join(pledgeTokenHashes, ",")
+
+	unpledgeSequenceInfo := &wallet.UnpledgeSequenceInfo{
+		TransactionID: consensusReq.TransactionID,
+		PledgeTokens:  pledgeTokensArr,
+		Epoch:         int64(consensusReq.TransactionEpoch),
+		QuorumDID:     qrmdid,
+	}
+
+	err = c.w.AddUnpledgeSequenceInfo(unpledgeSequenceInfo)
+	if err != nil {
+		response.Message = fmt.Sprintf("Error while adding rollback-record to UnpledgeSequence table for txId: %v, error: %v", consensusReq.TransactionID, err.Error())
+		c.log.Error(fmt.Sprintf("Error while adding rollback-record to UnpledgeSequence table for txId: %v, error: %v", consensusReq.TransactionID, err.Error()))
+		return c.l.RenderJSON(req, &response, http.StatusOK)
+	}
+
+	response.Status = true
+	response.Message = "Rollback completed for quorum " + qrmdid
+	return c.l.RenderJSON(req, &response, http.StatusOK)
+}
+
+// receiver rolls back whenever the transaction fails : unpin trans token, delete from tokens table and transaction history table
+func (c *Core) ReceiverRollBackResponse(req *ensweb.Request) *ensweb.Result {
+	response := model.BasicResponse{
+		Status: false,
+	}
+	rcvdid := c.l.GetQuerry(req, "did")
+
+	var transTokensList []contract.TokenInfo
+	err := c.l.ParseJSON(req, transTokensList)
+	if err != nil {
+		c.log.Error("failed to parse request, err", err)
+		response.Message = err.Error()
+		return c.l.RenderJSON(req, &response, http.StatusOK)
+	}
+	// sc := contract.InitContract(consensusReq.ContractBlock, nil)
+	// transTokensList := sc.GetTransTokenInfo()
+
+	var transTokensArr []wallet.Token
+	// Receiver unpins the trans tokens, if pinned already
+	for _, transToken := range transTokensList {
+		ok, err := c.w.UnPin(transToken.Token, wallet.OwnerRole, rcvdid)
+		if !ok {
+			c.log.Error("receiver failed to unpin trans token :", transToken.Token, "err", err)
+			continue
+		}
+
+		// read trans tokens from table
+		token, err :=  c.w.ReadToken(transToken.Token)
+		if err != nil {
+			c.log.Error("failed to read trans token : ", transToken.Token)
+		}
+		transTokensArr = append(transTokensArr, *token)
+	}
+
+	// Receiver deletes the trans tokens from TokensTable
+	c.w.RemoveTokens(transTokensArr)
+
+	//TODO :
+	// 1. unpin received token
+	// 2. delete received tokens from sqlite3
+	// 3. delete last block of trans token chains
+
+
+
+	response.Status = true
+	response.Message = "Rollback completed for quorum " + rcvdid
+	return c.l.RenderJSON(req, &response, http.StatusOK)
+}

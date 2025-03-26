@@ -631,3 +631,75 @@ func extractQuorumDID(quorumList []string) []string {
 	}
 	return quorumListDID
 }
+
+type RollBackResponse struct {
+	model.BasicResponse
+	QuorumRollBackStatus   bool `json:"quorum_rollback_status"`
+	ReceiverRollBackStatus bool `json:"receiver_rollback_status"`
+	SenderRollbackStatus   bool `json:"sender_rollback_status"`
+}
+
+func (c *Core) TransactionRollBack(consensusReq *ConensusRequest, dc did.DIDCrypto) (RollBackResponse, error) {
+	response := RollBackResponse{
+		QuorumRollBackStatus:   false,
+		ReceiverRollBackStatus: false,
+		SenderRollbackStatus:   false,
+		BasicResponse: model.BasicResponse{
+			Status: false,
+		},
+	}
+
+	sc := contract.InitContract(consensusReq.ContractBlock, nil)
+	transTokensInfo := sc.GetTransTokenInfo()
+
+	//sender itself rolls back : pin trans token and update token status
+	sndrResponse, err := c.SenderRollBack(consensusReq)
+	response.SenderRollbackStatus = sndrResponse.Status
+	if !sndrResponse.Status {
+		c.log.Error("sender failed to roll back, err ", err)
+		response.Message = "roll back failed for sender"
+		return response, err
+	}
+
+	// connect quorums and roll back : unpin token state and parent tokens and unpledge tokens
+	for _, quorumAddr := range consensusReq.QuorumList {
+		qPeer, err := c.getPeer(quorumAddr, "")
+		if err != nil {
+			c.log.Error("Quorum not connected", "err", err)
+			response.Message = "failed to connect with quorum : " + quorumAddr
+			return response, err
+		}
+
+		// request quorum to rollback
+		var qrmResponse model.BasicResponse
+		qPeer.SendJSONRequest("POST", APIQuorumRollBackPath, nil, &consensusReq, &qrmResponse, true)
+		if !qrmResponse.Status {
+			c.log.Error("msg", qrmResponse.Message)
+			response.QuorumRollBackStatus = false
+			response.Message = response.Message + "roll back failed for quorum: " + quorumAddr + "; "
+		} else {
+			response.QuorumRollBackStatus = true && response.QuorumRollBackStatus
+		}
+	}
+
+	//connect receiver and roll back : unpin trans token, delete from tokens table and transaction history table
+	reciverPeer, err := c.getPeer(sc.GetReceiverDID(), "")
+	if err != nil {
+		c.log.Error("Receiver not connected", "err", err)
+		response.Message = "failed to connect with receiver : " + sc.GetReceiverDID()
+		return response, err
+	}
+
+	// request quorum to rollback
+	var rcvResponse model.BasicResponse
+	reciverPeer.SendJSONRequest("POST", APIReceiverRollBackPath, nil, transTokensInfo, &rcvResponse, true)
+	response.ReceiverRollBackStatus = rcvResponse.Status
+	if !rcvResponse.Status {
+		c.log.Error("msg", rcvResponse.Message)
+		response.Message = response.Message + "roll back failed for receiver"
+	}
+
+	response.BasicResponse.Status = true
+	response.Message = response.Message + "Transaction roll back successful"
+	return response, nil
+}

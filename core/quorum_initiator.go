@@ -2589,3 +2589,32 @@ func (c *Core) checkLockedTokens(cr *ConensusRequest, quorumList []string) error
 	}
 	return nil
 }
+
+func (c *Core) SenderRollBack(consensusReq *ConensusRequest) (model.BasicResponse, error) {
+	response := model.BasicResponse {
+		Status: false,
+	}
+	sc := contract.InitContract(consensusReq.ContractBlock, nil)
+	transTokensList := sc.GetTransTokenInfo()
+
+	for _, transToken := range transTokensList {
+		// pin the trans tokens again
+		ok, err := c.w.Pin(transToken.Token, wallet.OwnerRole, sc.GetSenderDID(),consensusReq.TransactionID, sc.GetSenderDID(), sc.GetReceiverDID(), sc.GetTotalRBTs())
+		if !ok {
+			c.log.Error("sender failed to pin the trans token: ", transToken.Token, "err ", err)
+			continue
+		}
+		// read trans tokens from table
+		token, err :=  c.w.ReadToken(transToken.Token)
+		if err != nil {
+			c.log.Error("failed to read trans token : ", transToken.Token, "err", err)
+		}
+		// update token status back to free
+		token.TokenStatus = wallet.TokenIsFree
+		c.w.UpdateToken(token)
+	}
+
+	response.Status = true
+	response.Message = "sender roll back successful"
+	return response, nil
+}

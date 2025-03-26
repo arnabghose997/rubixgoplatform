@@ -38,6 +38,8 @@ func (c *Core) PingSetup() {
 	c.l.AddRoute(APIPingPath, "GET", c.PingRecevied)
 	c.l.AddRoute(APIGetPeerInfoPath, "GET", c.GetPeerInfoResponse)
 	c.l.AddRoute(APIGetPrevQrmFromPrevSenderPath, "GET", c.GetPrevQuorumsFromPrevBlockSenderResponse)
+	c.l.AddRoute(APIQuorumRollBackPath, "POST", c.QuorumRollBackResponse)
+	c.l.AddRoute(APIReceiverRollBackPath, "POST", c.ReceiverRollBackResponse)
 }
 
 // CheckQuorumStatusSetup will setup the ping route
