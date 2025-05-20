@@ -248,9 +248,7 @@ func (c *Core) miningCallback(peerID string, topic string, data []byte) {
 		c.log.Error("Failed to parse mining callback data", "err", err)
 		return
 	}
-	minerAddressForSync := fmt.Sprintf("%s.%s", miningData.MinerPeerID, miningData.MinerDID)
-	fmt.Println(minerAddressForSync)
-	err = c.SyncMiningChain(minerAddressForSync)
+	err = c.SyncMiningChain(miningData.MinerPeerID)
 	if err != nil {
 		c.log.Error("Failed to get Rubix mining chain ID")
 	}
