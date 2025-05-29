@@ -334,6 +334,7 @@ func (c *Core) syncTokenChain(req *ensweb.Request) *ensweb.Result {
 
 func (c *Core) syncMiningChain(req *ensweb.Request) *ensweb.Result {
 	// Fetch token blocks
+	fmt.Println("Mining chain sync request received")
 	blks, _, err := c.w.GetAllMiningChainBlocks(block.GetMiningChainID(), 0)
 	if err != nil {
 		c.log.Error("Error fetching token blocks", "error", err)
@@ -423,13 +424,13 @@ func (c *Core) syncTokenChainFrom(p *ipfsport.Peer, pblkID string, token string,
 	var err error
 	var blkHeight uint64
 	blk := c.w.GetLatestTokenBlock(token, tokenType)
-	var blkId string
+	blkID := ""
 	if blk != nil {
 		var err error
 		if blk.GetMinerDID() != "" {
-			blkId, err = blk.GetMinedTokenBlockID(token)
+			blkID, err = blk.GetMinedTokenBlockID(token)
 		} else {
-			blkId, err = blk.GetBlockID(token)
+			blkID, err = blk.GetBlockID(token)
 		}
 
 		if err != nil {
@@ -437,24 +438,19 @@ func (c *Core) syncTokenChainFrom(p *ipfsport.Peer, pblkID string, token string,
 			return fmt.Errorf("failed to get block ID for token %s: %w", token, err)
 		}
 
-		if blkId == pblkID {
+		if blkID == pblkID {
 			return nil
 		}
 		blkHeight, err = blk.GetBlockNumber(token)
 		if err != nil {
 			c.log.Error("invalid block, failed to get block number")
 			return err
-		} else {
-			c.log.Debug("No block found, requesting full chain")
-
-			// If blk is nil, set blkId to empty string to request full chain
-			blkId = ""
 		}
 	}
 	syncReq := TCBSyncRequest{
 		Token:     token,
 		TokenType: tokenType,
-		BlockID:   blkId,
+		BlockID:   blkID,
 	}
 
 	if tokenType == c.TokenType(RBTString) || tokenType == c.TokenType(PartString) {
@@ -474,7 +470,7 @@ func (c *Core) syncTokenChainFrom(p *ipfsport.Peer, pblkID string, token string,
 		}
 	} else {
 		// in case of FTs, and NFTs
-		fmt.Println("blockID which is sent through API", blkId)
+		fmt.Println("blockID which is sent through API", blkID)
 		for {
 			var trep TCBSyncReply
 			err = p.SendJSONRequest("POST", APISyncTokenChain, nil, &syncReq, &trep, false)
@@ -1620,7 +1616,7 @@ func (c *Core) SyncMiningChain(peerID string) error {
 			c.log.Error("Failed to add token chain block, invalid block, sync failed", "err", err)
 			return fmt.Errorf("failed to add token chain block, invalid block, sync failed")
 		}
-		err = c.w.AddMiningChainBlock(block.GetMiningChainID(), miningblk)
+		err = c.w.AddMiningChainBlock(miningblk)
 		if err != nil {
 			c.log.Error("Failed to add token chain block, syncing failed", "err", err)
 			return err
