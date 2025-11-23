@@ -160,6 +160,12 @@ func unpledgeToken(c *Core, pledgeToken string, pledgeTokenType int, quorumDID s
 				c.log.Error("Failed to remove unpledge sequence info", "err", err)
 				return "", "", err
 			}
+			// remove trans-tokens from quorums' table, when the tokens pledged for those are being unpledged
+			err = c.w.RemoveTransTokensBeingUnpledged(transactionId)
+			if err != nil {
+				c.log.Error("Failed to remove unpledge sequence info", "err", err)
+				return "", "", err
+			}
 		}
 	}
 

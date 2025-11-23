@@ -1,11 +1,14 @@
 package core
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/rubixchain/rubixgoplatform/core/storage"
@@ -245,4 +248,51 @@ func saveQuorumsToFile(qds []QuorumData, fileName string) error {
 	}
 	fmt.Printf("Quorum file saved successfully at %s\n", currentDir)
 	return nil
+}
+
+// this function is for quorums to commit the transaction-ids of an user for which they are pledging currently
+func (c *Core) QuorumCommitment(userDID string) (string, error) {
+	// collect trans tokens currently pledging for : 2 ways :
+	// 1. get trans-tokens from TokensTable with status 20
+	// 2. If there are no tokens with status 20, read latest blocks of all tokens from level db and
+	//    search the transaction-id in TokenStateHashTable
+
+	// fetch transaction-ids and epoch of all these trans-tokens
+	txList := make([]TxnEpoch, 0)
+
+	// order all the transaction ids as per epoch in ascending order
+	sort.Slice(txList, func(i, j int) bool {
+		return txList[i].Epoch < txList[j].Epoch
+	})
+
+	// hash the transactions recursively
+	commitmentHash := c.recursiveHashChain(txList)
+
+	return commitmentHash, nil
+}
+
+type TxnEpoch struct {
+	TransactionId string `json:"transaction_id"`
+	Epoch         int    `json:"epoch"`
+}
+
+// order txn ids with epoch
+func (c *Core) OrderTxnIdsWithEpoch(txList []TxnEpoch) ([]TxnEpoch, error) {
+	sort.Slice(txList, func(i, j int) bool {
+		return txList[i].Epoch < txList[j].Epoch
+	})
+	return txList, nil
+}
+
+func (c *Core) recursiveHashChain(txs []TxnEpoch) string {
+	var prev []byte
+
+	for _, tx := range txs {
+		h := sha256.New() //--- check if already exists
+		h.Write(prev)                     // previous hash
+		h.Write([]byte(tx.TransactionId)) // current tx id
+		prev = h.Sum(nil)
+	}
+
+	return hex.EncodeToString(prev)
 }

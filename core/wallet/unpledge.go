@@ -105,3 +105,13 @@ func (w *Wallet) Migration_DropUnpledgeQueueTable() error {
 
 	return nil
 }
+
+func (w *Wallet) RemoveTransTokensBeingUnpledged(transactionId string) error {
+	err := w.s.Delete(TokenStorage, &Token{}, "transaction_id =? AND token_status=?", transactionId, QuorumPledgedForThisToken)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to remove trans tokens for which quorum is unpledging, txn id : %v; err : %v", transactionId, err)
+		w.log.Error(errMsg)
+		return fmt.Errorf("%v", errMsg)
+	}
+	return nil
+}
