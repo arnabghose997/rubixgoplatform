@@ -1946,3 +1946,47 @@ func (w *Wallet) GetTxnAmountFromFullNode(txnID string) (*model.FullNodeTxnHisto
 
 	return txnAmountInfo, nil
 }
+
+// get tokens with status QuorumPledgedForThisToken = 20
+func (w *Wallet) GetTransTokensBeingPledged(userDID string) ([]Token, error) {
+	transTokens := make([]Token, 0)
+	err := w.s.Read(TokenStorage, &transTokens, "did=? AND token_status=?", userDID, QuorumPledgedForThisToken)
+	if err != nil {
+		if strings.Contains(err.Error(), "no records found") {
+			return transTokens, nil
+		} else {
+			errMsg := fmt.Sprintf("Failed to get trans-tokens quorum is pledging for; err : %v", err)
+			w.log.Error(errMsg)
+			return nil, fmt.Errorf("%v", errMsg)
+		}
+	}
+	return transTokens, nil
+}
+
+// check if trans-token exists with status 20
+func (w *Wallet) ReadTransTokenWithTokenIdAndDID(tokenId, userDID string) error {
+	err := w.s.Read(TokenStorage, &Token{}, "token_id=? AND did=? AND token_status=?", tokenId, userDID, QuorumPledgedForThisToken)
+	if err != nil {
+		if strings.Contains(err.Error(), "no records found") {
+			return err
+		} else {
+			errMsg := fmt.Sprintf("Failed to read trans-tokens quorum is pledging for; err : %v", err)
+			w.log.Error(errMsg)
+			return fmt.Errorf("%v", errMsg)
+		}
+	}
+	return nil
+}
+
+// check if trans-token exists with status 20
+func (w *Wallet) AddTransTokenBeingPledged(tokenInfo Token) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	err := w.s.Write(TokenStorage, &tokenInfo)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to add trans-tokens quorum is pledging for; err : %v", err)
+		w.log.Error(errMsg)
+		return fmt.Errorf("%v", errMsg)
+	}
+	return nil
+}

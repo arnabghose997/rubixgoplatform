@@ -252,17 +252,30 @@ func saveQuorumsToFile(qds []QuorumData, fileName string) error {
 
 // this function is for quorums to commit the transaction-ids of an user for which they are pledging currently
 func (c *Core) QuorumCommitment(userDID string) (string, error) {
-	// collect trans tokens currently pledging for : 2 ways :
-	// 1. get trans-tokens from TokensTable with status 20
-	// 2. If there are no tokens with status 20, read latest blocks of all tokens from level db and
-	//    search the transaction-id in TokenStateHashTable
-
 	// fetch transaction-ids and epoch of all these trans-tokens
 	txList := make([]TxnEpoch, 0)
 
+	// collect trans tokens currently pledging for : 2 ways :
+	// 1. get trans-tokens from TokensTable with status 20
+	transTokens, err := c.w.GetTransTokensBeingPledged(userDID)
+	if err != nil {
+		return "", err
+	}
+	if transTokens == nil {
+		// 2. If there are no tokens with status 20, read latest blocks of all tokens from level db and
+		//    search the transaction-id in TokenStateHashTable
+
+	} else {
+		txList, err = c.getTxIdsQuorumIsPledgingFor(transTokens, userDID)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to fetch transaction ids, for which quorum is pledging currently, err : %v", err)
+			return "", fmt.Errorf("%v", errMsg)
+		}
+	}
+
 	// order all the transaction ids as per epoch in ascending order
 	sort.Slice(txList, func(i, j int) bool {
-		return txList[i].Epoch < txList[j].Epoch
+		return txList[i].TxnEpoch < txList[j].TxnEpoch
 	})
 
 	// hash the transactions recursively
@@ -273,26 +286,92 @@ func (c *Core) QuorumCommitment(userDID string) (string, error) {
 
 type TxnEpoch struct {
 	TransactionId string `json:"transaction_id"`
-	Epoch         int    `json:"epoch"`
+	TxnEpoch      int    `json:"epoch"`
 }
 
 // order txn ids with epoch
 func (c *Core) OrderTxnIdsWithEpoch(txList []TxnEpoch) ([]TxnEpoch, error) {
 	sort.Slice(txList, func(i, j int) bool {
-		return txList[i].Epoch < txList[j].Epoch
+		return txList[i].TxnEpoch < txList[j].TxnEpoch
 	})
 	return txList, nil
 }
 
+// hashes txn-ids recursively in the provided order and returns the final output
 func (c *Core) recursiveHashChain(txs []TxnEpoch) string {
 	var prev []byte
 
 	for _, tx := range txs {
-		h := sha256.New() //--- check if already exists
+		h := sha256.New()                 //--- check if already exists
 		h.Write(prev)                     // previous hash
 		h.Write([]byte(tx.TransactionId)) // current tx id
 		prev = h.Sum(nil)
 	}
 
 	return hex.EncodeToString(prev)
+}
+
+// manage trans-tokens, store trans-tokens with status 20 in Tokens table only if they are being pledged by the quorum currently
+func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userDID string) ([]TxnEpoch, error) {
+	txnList := make([]TxnEpoch, 0)
+	removeTransTokensList := make([]wallet.Token, 0)
+
+	for _, transToken := range transTokensList {
+		// TODO : 1. check latest block of each trans-token
+		tokenType := RBTString
+		if transToken.TokenValue < 1.0 {
+			tokenType = PartString
+		}
+		latestBlock := c.w.GetLatestTokenBlock(transToken.TokenID, c.TokenType(tokenType))
+
+		//		2. get txn-id
+		txnId := latestBlock.GetTid()
+		// if transaction-id is empty in latest block, then remove the trans-token from TokensTable
+		if txnId == "" {
+			removeTransTokensList = append(removeTransTokensList, transToken)
+			continue
+		}
+		//    	3. check if txn-id is there in the TokenStateHash table
+		tokenStateHashListByTxId, err := c.w.GetTokenStateHashByTransactionID(txnId)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to read TokenStateHash table, err : %v", err)
+			return nil, fmt.Errorf("%v",errMsg)
+		}
+		// 		4. If it is not there remove the token from TokensTable
+		if tokenStateHashListByTxId == nil {
+			removeTransTokensList = append(removeTransTokensList, transToken)
+			continue
+		}
+		// txn id found in latest block and in TokenStateHash table,
+		// confirm it exists in TokensTable with status 20
+		err = c.w.ReadTransTokenWithTokenIdAndDID(transToken.TokenID, userDID)
+		if err != nil {
+			// add it to tokens table if it doesn't exist already
+			transToken.DID = userDID
+			transToken.TokenStatus = wallet.QuorumPledgedForThisToken
+			transToken.TransactionID = txnId
+			err = c.w.AddTransTokenBeingPledged(transToken)
+			if err != nil {
+				// DO NOT RETURN ERROR, continue adding txnId
+				errMsg := fmt.Sprintf("failed to write trans-tokens to TokensTable, err : %v", err)
+				c.log.Error(errMsg)
+			}
+		}
+		// add it to txn list to commit
+		txnList = append(txnList, TxnEpoch{
+			TransactionId: txnId,
+			TxnEpoch:      latestBlock.GetEpoch(),
+		})
+
+	}
+
+	// remove all trans-tokens from TokensTable, which are not being pledged anymore
+	err := c.w.RemoveTokens(removeTransTokensList)
+	if err != nil {
+		// DO NOT RETURN ERROR, return txn list
+		errMsg := fmt.Sprintf("failed to remove trans-tokens from TokensTbale that are unpledged by quorum , err : %v", err)
+		c.log.Error(errMsg)
+	}
+
+	return txnList, nil
 }
