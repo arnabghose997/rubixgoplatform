@@ -1964,18 +1964,19 @@ func (w *Wallet) GetTransTokensBeingPledged(userDID string) ([]Token, error) {
 }
 
 // check if trans-token exists with status 20
-func (w *Wallet) ReadTransTokenWithTokenIdAndDID(tokenId, userDID string) error {
-	err := w.s.Read(TokenStorage, &Token{}, "token_id=? AND did=? AND token_status=?", tokenId, userDID, QuorumPledgedForThisToken)
+func (w *Wallet) ReadTransTokenWithTokenIdAndDID(tokenId, userDID string) (*Token, error) {
+	var tokenInfo Token
+	err := w.s.Read(TokenStorage, &tokenInfo, "token_id=? AND did=? AND token_status=?", tokenId, userDID, QuorumPledgedForThisToken)
 	if err != nil {
 		if strings.Contains(err.Error(), "no records found") {
-			return err
+			return nil, err
 		} else {
 			errMsg := fmt.Sprintf("Failed to read trans-tokens quorum is pledging for; err : %v", err)
 			w.log.Error(errMsg)
-			return fmt.Errorf("%v", errMsg)
+			return nil, fmt.Errorf("%v", errMsg)
 		}
 	}
-	return nil
+	return &tokenInfo, nil
 }
 
 // check if trans-token exists with status 20

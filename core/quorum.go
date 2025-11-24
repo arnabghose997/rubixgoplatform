@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/rubixchain/rubixgoplatform/core/storage"
@@ -253,7 +252,7 @@ func saveQuorumsToFile(qds []QuorumData, fileName string) error {
 // this function is for quorums to commit the transaction-ids of an user for which they are pledging currently
 func (c *Core) QuorumCommitment(userDID string) (string, error) {
 	// fetch transaction-ids and epoch of all these trans-tokens
-	txList := make([]TxnEpoch, 0)
+	txList := make([]wallet.TxnEpoch, 0)
 
 	// collect trans tokens currently pledging for : 2 ways :
 	// 1. get trans-tokens from TokensTable with status 20
@@ -264,6 +263,11 @@ func (c *Core) QuorumCommitment(userDID string) (string, error) {
 	if transTokens == nil {
 		// 2. If there are no tokens with status 20, read latest blocks of all tokens from level db and
 		//    search the transaction-id in TokenStateHashTable
+		txList, err = c.w.GetPledgingTransactionsFromLevelDB(c.testNet)
+		if err != nil {
+			c.log.Error("err ", err)
+			return "", err
+		}
 
 	} else {
 		txList, err = c.getTxIdsQuorumIsPledgingFor(transTokens, userDID)
@@ -274,31 +278,16 @@ func (c *Core) QuorumCommitment(userDID string) (string, error) {
 	}
 
 	// order all the transaction ids as per epoch in ascending order
-	sort.Slice(txList, func(i, j int) bool {
-		return txList[i].TxnEpoch < txList[j].TxnEpoch
-	})
+	orderedTxnList := c.w.OrderTxnIdsWithEpoch(txList)
 
 	// hash the transactions recursively
-	commitmentHash := c.recursiveHashChain(txList)
+	commitmentHash := c.recursiveHashChain(orderedTxnList)
 
 	return commitmentHash, nil
 }
 
-type TxnEpoch struct {
-	TransactionId string `json:"transaction_id"`
-	TxnEpoch      int    `json:"epoch"`
-}
-
-// order txn ids with epoch
-func (c *Core) OrderTxnIdsWithEpoch(txList []TxnEpoch) ([]TxnEpoch, error) {
-	sort.Slice(txList, func(i, j int) bool {
-		return txList[i].TxnEpoch < txList[j].TxnEpoch
-	})
-	return txList, nil
-}
-
 // hashes txn-ids recursively in the provided order and returns the final output
-func (c *Core) recursiveHashChain(txs []TxnEpoch) string {
+func (c *Core) recursiveHashChain(txs []wallet.TxnEpoch) string {
 	var prev []byte
 
 	for _, tx := range txs {
@@ -312,8 +301,8 @@ func (c *Core) recursiveHashChain(txs []TxnEpoch) string {
 }
 
 // manage trans-tokens, store trans-tokens with status 20 in Tokens table only if they are being pledged by the quorum currently
-func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userDID string) ([]TxnEpoch, error) {
-	txnList := make([]TxnEpoch, 0)
+func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userDID string) ([]wallet.TxnEpoch, error) {
+	txnList := make([]wallet.TxnEpoch, 0)
 	removeTransTokensList := make([]wallet.Token, 0)
 
 	for _, transToken := range transTokensList {
@@ -335,7 +324,7 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 		tokenStateHashListByTxId, err := c.w.GetTokenStateHashByTransactionID(txnId)
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to read TokenStateHash table, err : %v", err)
-			return nil, fmt.Errorf("%v",errMsg)
+			return nil, fmt.Errorf("%v", errMsg)
 		}
 		// 		4. If it is not there remove the token from TokensTable
 		if tokenStateHashListByTxId == nil {
@@ -344,7 +333,7 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 		}
 		// txn id found in latest block and in TokenStateHash table,
 		// confirm it exists in TokensTable with status 20
-		err = c.w.ReadTransTokenWithTokenIdAndDID(transToken.TokenID, userDID)
+		_, err = c.w.ReadTransTokenWithTokenIdAndDID(transToken.TokenID, userDID)
 		if err != nil {
 			// add it to tokens table if it doesn't exist already
 			transToken.DID = userDID
@@ -358,9 +347,9 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 			}
 		}
 		// add it to txn list to commit
-		txnList = append(txnList, TxnEpoch{
+		txnList = append(txnList, wallet.TxnEpoch{
 			TransactionId: txnId,
-			TxnEpoch:      latestBlock.GetEpoch(),
+			Epoch:         latestBlock.GetEpoch(),
 		})
 
 	}

@@ -46,3 +46,11 @@ func TokenSort(t []Token, dsc bool) {
 		By(ascFunc).Sort(t)
 	}
 }
+
+// order txn ids with epoch
+func (w *Wallet) OrderTxnIdsWithEpoch(txList []TxnEpoch) []TxnEpoch {
+	sort.Slice(txList, func(i, j int) bool {
+		return txList[i].Epoch < txList[j].Epoch
+	})
+	return txList
+}

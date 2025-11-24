@@ -43,6 +43,12 @@ type TokenStateDetails struct {
 	TransactionID  string `gorm:"column:transaction_id" json:"transaction_id"`
 }
 
+// for quorum commitment
+type TxnEpoch struct {
+	TransactionId string `json:"transaction_id"`
+	Epoch         int    `json:"epoch"`
+}
+
 func tcsType(tokenType int) string {
 	tt := "wt"
 	switch tokenType {
@@ -1106,4 +1112,177 @@ func (w *Wallet) BatchAddTokenBlocksFT(pairs []struct {
 		}{Token: p.Token, Block: p.Block, TokenType: tkn.FTTokenType})
 	}
 	return w.BatchAddTokenBlocks(genericPairs)
+}
+
+// If found, add it to the Txns list and
+// add the token to Tokenstable with status 20 and owner did
+func (w *Wallet) GetPledgingTransactionsFromLevelDB(isTestnet bool) ([]TxnEpoch, error) {
+	txnList := make([]TxnEpoch, 0)
+	// rbtList := make([]Token, 0)
+
+	// first iter over whole RBTs and then Part RBTs in order
+	tokenTypes := []int{
+		tkn.RBTTokenType,
+		tkn.PartTokenType,
+	}
+	if isTestnet {
+		tokenTypes = []int{
+			tkn.TestTokenType,
+			tkn.TestPartTokenType,
+		}
+	}
+
+	for _, tokenType := range tokenTypes {
+		txList_, err := w.GetPledgingTxnList(tokenType)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to get txn list of rbts of token-type %d, err : %v", tokenType, err)
+			w.log.Error(errMsg)
+			return txnList, fmt.Errorf("%v", errMsg)
+		}
+		txnList = append(txnList, txList_...)
+	}
+	return txnList, nil
+}
+
+// checks latest block of each RBT chain in level-db for a given tokenType, gets the transaction-id and
+// searches the same in TokenStateHashTable; If found, return the txns list with their epochs
+func (w *Wallet) GetPledgingTxnList(tokenType int) ([]TxnEpoch, error) {
+	// rbtList := make([]Token, 0)
+	pledgingTxnList := make([]TxnEpoch, 0)
+	txnEpochMap := make(map[string]TxnEpoch, 0)
+
+	tokenIds, err := w.GetAllTokenChains(tokenType)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tokenId := range tokenIds {
+		latestBlock := w.GetLatestTokenBlock(tokenId, tokenType)
+		if latestBlock == nil {
+			continue
+		}
+
+		// get Txn-id
+		txnId := latestBlock.GetTid()
+		if txnId == "" {
+			continue
+		}
+
+		// check if txnId is already added to the pledgingTxnList,
+		// if exists and epoch matches, add token info to TokensTable
+		v, exists := txnEpochMap[txnId]
+		if exists {
+			// check if stored epoch also matches
+			if v.Epoch != latestBlock.GetEpoch() {
+				return nil, fmt.Errorf("epoch mismatch for same txn id : %v, token : %v", txnId, tokenId)
+			}
+			err = w.AddTransTokenToQuorumsTokensTable(tokenId, tokenType, txnId, latestBlock)
+			if err != nil {
+				w.log.Error("err", err)
+				return nil, err
+			}
+			continue
+		}
+
+		// check if txnId is there in TokenStateHashTable, if it is there,
+		// that means the quorum is currently pledging for this transaction
+		_, err := w.GetTokenStateHashByTransactionID(txnId)
+		if err != nil {
+			if strings.Contains(err.Error(), "no records found") {
+				continue
+			}
+			return nil, fmt.Errorf("failed to search txn id %v in TokenStateHashTable", txnId)
+		}
+		// since the quorum is pledging for this transaction block,
+		// so add this token to TokensTable with status 20 and add the txnId to the pledgingTxnList
+		err = w.AddTransTokenToQuorumsTokensTable(tokenId, tokenType, txnId, latestBlock)
+		if err != nil {
+			w.log.Error("err", err)
+			return nil, err
+		}
+		txnInfo := TxnEpoch{
+			TransactionId: txnId,
+			Epoch:         latestBlock.GetEpoch(),
+		}
+		pledgingTxnList = append(pledgingTxnList, txnInfo)
+		txnEpochMap[txnId] = txnInfo
+
+	}
+
+	return pledgingTxnList, nil
+}
+
+func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int, txnId string, latestBlock *block.Block) error {
+	ownerDID := latestBlock.GetOwner()
+	// check if token exists in table, if not, add token info to list
+	storedTokenInfo, err := w.ReadTransTokenWithTokenIdAndDID(tokenId, ownerDID)
+	if err != nil {
+		var tokenValue float64
+		genesisBlock := w.getGenesisBlock(tokenType, tokenId)
+		transType := genesisBlock.GetTransType()
+		if transType == block.TokenMigratedType {
+			tokenValue = 1.0
+		} else if transType == block.TokenGeneratedType {
+			tokenValue = genesisBlock.GetTokenValue()
+		}
+		parentTokenId, _, _ := genesisBlock.GetParentDetials(tokenId)
+		// add it to tokens table if it doesn't exist already
+		transToken := Token{
+			TokenID:       tokenId,
+			DID:           ownerDID,
+			TokenValue:    tokenValue,
+			TokenStatus:   QuorumPledgedForThisToken,
+			ParentTokenID: parentTokenId,
+		}
+		err = w.AddTransTokenBeingPledged(transToken)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to write trans-token %v to TokensTable, err : %v", tokenId, err)
+			w.log.Error(errMsg)
+			return fmt.Errorf(errMsg)
+		}
+	} else if storedTokenInfo.TransactionID == "" {
+		storedTokenInfo.TransactionID = txnId
+		_ = w.UpdateToken(storedTokenInfo)
+		// if err != nil {
+		// 	return fmt.Errorf("failed to update txn id %v of trans token %v in table", txnId, tokenId)
+		// }
+	}
+	return nil
+}
+
+func (w *Wallet) GetAllTokenChains(tt int) ([]string, error) {
+	db := w.getChainDB(tt)
+	if db == nil {
+		return nil, fmt.Errorf("invalid token type")
+	}
+
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+
+	tokenSet := make(map[string]bool)
+
+	for iter.Next() {
+		key := string(iter.Key())
+
+		// Keys look like: tt-<tokenId> OR tt-<tokenId>-<blockId>
+		if !strings.HasPrefix(key, fmt.Sprintf("%d-", tt)) {
+			continue
+		}
+
+		parts := strings.Split(key, "-")
+		if len(parts) < 2 {
+			continue
+		}
+
+		tokenId := parts[1]      // tt-<tokenId>
+		tokenSet[tokenId] = true // dedupe
+	}
+
+	// Convert to slice
+	tokenIds := make([]string, 0, len(tokenSet))
+	for t := range tokenSet {
+		tokenIds = append(tokenIds, t)
+	}
+
+	return tokenIds, iter.Error()
 }
