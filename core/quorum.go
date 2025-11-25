@@ -263,7 +263,7 @@ func (c *Core) QuorumCommitment(userDID string) (string, error) {
 	if transTokens == nil {
 		// 2. If there are no tokens with status 20, read latest blocks of all tokens from level db and
 		//    search the transaction-id in TokenStateHashTable
-		txList, err = c.w.GetPledgingTransactionsFromLevelDB(c.testNet)
+		txList, err = c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
 		if err != nil {
 			c.log.Error("err ", err)
 			return "", err

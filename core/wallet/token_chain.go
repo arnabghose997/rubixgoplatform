@@ -1116,9 +1116,8 @@ func (w *Wallet) BatchAddTokenBlocksFT(pairs []struct {
 
 // If found, add it to the Txns list and
 // add the token to Tokenstable with status 20 and owner did
-func (w *Wallet) GetPledgingTransactionsFromLevelDB(isTestnet bool) ([]TxnEpoch, error) {
+func (w *Wallet) GetPledgingTransactionsFromLevelDB(isTestnet bool, userDID string) ([]TxnEpoch, error) {
 	txnList := make([]TxnEpoch, 0)
-	// rbtList := make([]Token, 0)
 
 	// first iter over whole RBTs and then Part RBTs in order
 	tokenTypes := []int{
@@ -1133,7 +1132,7 @@ func (w *Wallet) GetPledgingTransactionsFromLevelDB(isTestnet bool) ([]TxnEpoch,
 	}
 
 	for _, tokenType := range tokenTypes {
-		txList_, err := w.GetPledgingTxnList(tokenType)
+		txList_, err := w.GetPledgingTxnList(tokenType, userDID)
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to get txn list of rbts of token-type %d, err : %v", tokenType, err)
 			w.log.Error(errMsg)
@@ -1146,8 +1145,7 @@ func (w *Wallet) GetPledgingTransactionsFromLevelDB(isTestnet bool) ([]TxnEpoch,
 
 // checks latest block of each RBT chain in level-db for a given tokenType, gets the transaction-id and
 // searches the same in TokenStateHashTable; If found, return the txns list with their epochs
-func (w *Wallet) GetPledgingTxnList(tokenType int) ([]TxnEpoch, error) {
-	// rbtList := make([]Token, 0)
+func (w *Wallet) GetPledgingTxnList(tokenType int, userDID string) ([]TxnEpoch, error) {
 	pledgingTxnList := make([]TxnEpoch, 0)
 	txnEpochMap := make(map[string]TxnEpoch, 0)
 
@@ -1167,6 +1165,8 @@ func (w *Wallet) GetPledgingTxnList(tokenType int) ([]TxnEpoch, error) {
 		if txnId == "" {
 			continue
 		}
+
+		tokenOwner := latestBlock.GetOwner()
 
 		// check if txnId is already added to the pledgingTxnList,
 		// if exists and epoch matches, add token info to TokensTable
@@ -1191,7 +1191,12 @@ func (w *Wallet) GetPledgingTxnList(tokenType int) ([]TxnEpoch, error) {
 			if strings.Contains(err.Error(), "no records found") {
 				continue
 			}
-			return nil, fmt.Errorf("failed to search txn id %v in TokenStateHashTable", txnId)
+			// if the token is owned by the required user-DID, then it is important to know
+			// whether this txn is being pledged by the quorum currently or not
+			if tokenOwner == userDID {
+				return nil, fmt.Errorf("failed to search txn id %v in TokenStateHashTable", txnId)
+			}
+			continue
 		}
 		// since the quorum is pledging for this transaction block,
 		// so add this token to TokensTable with status 20 and add the txnId to the pledgingTxnList
@@ -1200,12 +1205,15 @@ func (w *Wallet) GetPledgingTxnList(tokenType int) ([]TxnEpoch, error) {
 			w.log.Error("err", err)
 			return nil, err
 		}
-		txnInfo := TxnEpoch{
-			TransactionId: txnId,
-			Epoch:         latestBlock.GetEpoch(),
+		// we only need txns where user is the token owner
+		if tokenOwner == userDID {
+			txnInfo := TxnEpoch{
+				TransactionId: txnId,
+				Epoch:         latestBlock.GetEpoch(),
+			}
+			pledgingTxnList = append(pledgingTxnList, txnInfo)
+			txnEpochMap[txnId] = txnInfo
 		}
-		pledgingTxnList = append(pledgingTxnList, txnInfo)
-		txnEpochMap[txnId] = txnInfo
 
 	}
 
@@ -1220,9 +1228,10 @@ func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int
 		var tokenValue float64
 		genesisBlock := w.getGenesisBlock(tokenType, tokenId)
 		transType := genesisBlock.GetTransType()
-		if transType == block.TokenMigratedType {
-			tokenValue = 1.0
-		} else if transType == block.TokenGeneratedType {
+		switch transType {
+		case block.TokenMigratedType:
+			tokenValue = 1.0     // all the tokens with genesis block type as "03" are whole tokens
+		case block.TokenGeneratedType:
 			tokenValue = genesisBlock.GetTokenValue()
 		}
 		parentTokenId, _, _ := genesisBlock.GetParentDetials(tokenId)
@@ -1238,14 +1247,11 @@ func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to write trans-token %v to TokensTable, err : %v", tokenId, err)
 			w.log.Error(errMsg)
-			return fmt.Errorf(errMsg)
+			return fmt.Errorf("%v",errMsg)
 		}
 	} else if storedTokenInfo.TransactionID == "" {
 		storedTokenInfo.TransactionID = txnId
 		_ = w.UpdateToken(storedTokenInfo)
-		// if err != nil {
-		// 	return fmt.Errorf("failed to update txn id %v of trans token %v in table", txnId, tokenId)
-		// }
 	}
 	return nil
 }
