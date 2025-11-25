@@ -67,6 +67,7 @@ const (
 	APIUpdateStatus                 string = "/api/update-status"
 	APIGetTokenStatus               string = "/api/get-token-status"
 	// APISendTokenChainDetails        string = "api/send-token-chain-details"
+	APITokenRecoveryQuorumCommitment string = "/api/token-recovery/quorum-commitment"
 )
 
 const (
