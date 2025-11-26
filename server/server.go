@@ -225,6 +225,7 @@ func (s *Server) RegisterRoutes() {
 
 	// s.AddRoute(setup.APIGetRBTLatestValidators, "GET", s.AuthHandle(s.APIGetRBTLatestValidators, false, s.AuthError, false))
 	// s.AddRoute(setup.APIGetFTLatestValidators, "GET", s.AuthHandle(s.APIGetFTLatestValidators, false, s.AuthError, false))
+	s.AddRoute(setup.APIUpdateTransTokensInQuorumsTable, "POST", s.APIUpdateTransTokensInQuorumsTable)
 }
 
 func (s *Server) ExitFunc() error {

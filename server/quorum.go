@@ -25,3 +25,18 @@ func (s *Server) APISetupQuorum(req *ensweb.Request) *ensweb.Result {
 	}
 	return s.BasicResponse(req, true, "Quorum setup done successfully", nil)
 }
+
+func (s *Server) APIUpdateTransTokensInQuorumsTable(req *ensweb.Request) *ensweb.Result {
+	var quorumDID string
+	err := s.ParseJSON(req, &quorumDID)
+	if err != nil {
+		return s.BasicResponse(req, false, "Failed to parse the quorum did", nil)
+	}
+	is_alphanumeric := regexp.MustCompile(`^[a-zA-Z0-9]*$`).MatchString(quorumDID)
+	if !strings.HasPrefix(quorumDID, "bafybmi") || len(quorumDID) != 59 || !is_alphanumeric {
+		s.log.Error("Invalid DID")
+		return s.BasicResponse(req, false, "Invalid DID", nil)
+	}
+	resp := s.c.APIUpdateTransTokensInQuorumsTable(quorumDID)
+	return s.BasicResponse(req, resp.Status, resp.Message, nil)
+}

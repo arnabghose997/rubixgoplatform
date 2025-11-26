@@ -134,6 +134,7 @@ const (
 
 	// APIGetRBTLatestValidators string = "/api/de-exp/get-rbt-token-chain-latest-block-validators"
 	// APIGetFTLatestValidators  string = "/api/de-exp/get-ft-token-chain-latest-block-validators"
+	APIUpdateTransTokensInQuorumsTable  string = "/api/quorum/update-trans-tokens"
 )
 
 // jwt.RegisteredClaims

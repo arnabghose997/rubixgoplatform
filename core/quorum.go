@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/storage"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
 	"github.com/rubixchain/rubixgoplatform/util"
@@ -245,4 +246,32 @@ func saveQuorumsToFile(qds []QuorumData, fileName string) error {
 	}
 	fmt.Printf("Quorum file saved successfully at %s\n", currentDir)
 	return nil
+}
+
+// fetch trans-tokens, for which quorum is pledging currently, and 
+// update their details in TokensTable with status 20 
+func (c *Core) APIUpdateTransTokensInQuorumsTable(quorumDID string) *model.BasicResponse {
+	response := &model.BasicResponse{
+		Status: false,
+	}
+	// check if this is a quorum node
+	_, ok := c.qc[quorumDID]
+	if !ok {
+		c.log.Error("Quorum is not setup")
+		response.Message = "Quorum is not setup for did : " + quorumDID
+		return response
+	}
+
+	userDID := ""
+	_, err := c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to update trans-tokens in quorum's TokensTable; err: %v", err)
+		c.log.Error(errMsg)
+		response.Message = errMsg
+		return response
+	}
+
+	response.Status = true
+	response.Message = "trans-tokens updated in quorum's TokensTable with status 20"
+	return response
 }

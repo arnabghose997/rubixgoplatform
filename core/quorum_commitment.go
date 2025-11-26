@@ -129,27 +129,27 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 	removeTransTokensList := make([]wallet.Token, 0)
 
 	for _, transToken := range transTokensList {
-		// TODO : 1. check latest block of each trans-token
+		// 1. check latest block of each trans-token
 		tokenType := RBTString
 		if transToken.TokenValue < 1.0 {
 			tokenType = PartString
 		}
 		latestBlock := c.w.GetLatestTokenBlock(transToken.TokenID, c.TokenType(tokenType))
 
-		//		2. get txn-id
+		//	2. get txn-id
 		txnId := latestBlock.GetTid()
 		// if transaction-id is empty in latest block, then remove the trans-token from TokensTable
 		if txnId == "" {
 			removeTransTokensList = append(removeTransTokensList, transToken)
 			continue
 		}
-		//    	3. check if txn-id is there in the TokenStateHash table
+		// 3. check if txn-id is there in the TokenStateHash table
 		tokenStateHashListByTxId, err := c.w.GetTokenStateHashByTransactionID(txnId)
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to read TokenStateHash table, err : %v", err)
 			return nil, fmt.Errorf("%v", errMsg)
 		}
-		// 		4. If it is not there remove the token from TokensTable
+		// 4. If it is not there remove the token from TokensTable
 		if tokenStateHashListByTxId == nil {
 			removeTransTokensList = append(removeTransTokensList, transToken)
 			continue

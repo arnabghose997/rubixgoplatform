@@ -83,3 +83,14 @@ func (c *Client) SetupQuorum(did string, pwd string, privPwd string) (string, bo
 	}
 	return rm.Message, rm.Status
 }
+
+func (c *Client) UpdateTransTokensInQuorumsTable(quorumDID string) *model.BasicResponse{
+	var response *model.BasicResponse
+	err := c.sendJSONRequest("POST", setup.APIUpdateTransTokensInQuorumsTable, nil, &quorumDID, &response)
+	if err != nil {
+		response.Status = false
+		response.Message = "failed to update trans-tokens in Quorum's TokensTable; err : " + err.Error()
+		return response
+	}
+	return response
+}
