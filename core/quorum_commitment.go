@@ -40,20 +40,31 @@ func (c *Core) quorumCommitmentResponse(req *ensweb.Request) *ensweb.Result {
 		commitResponse.Message = errMsg
 		return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
 	}
+	commitResponse = c.QuorumCommitment(commitRequest.UserDID, quorumDID)
+	return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
+}
 
+// quorum signature on commitment hash
+func (c *Core) QuorumCommitment(userDID, quorumDID string) *QuorumCommitResponse {
+	commitResponse := &QuorumCommitResponse{
+		QuorumDID: quorumDID,
+		BasicResponse: model.BasicResponse{
+			Status: false,
+		},
+	}
 	quorumSignInterface, ok := c.qc[quorumDID]
 	if !ok {
 		c.log.Error("Failed to setup quorum crypto to sign on commitment hash")
 		commitResponse.Message = "Failed to setup quorum crypto to sign on commitment hash"
-		return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
+		return commitResponse
 	}
 
-	commitmentHash, err := c.QuorumCommitmentHash(commitRequest.UserDID)
+	commitmentHash, err := c.QuorumCommitmentHash(userDID)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed create commitment hash; err : %v", err)
 		c.log.Error(errMsg)
 		commitResponse.Message = errMsg
-		return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
+		return commitResponse
 	}
 
 	quorumSig, err := quorumSignInterface.PvtSign(commitmentHash)
@@ -61,15 +72,15 @@ func (c *Core) quorumCommitmentResponse(req *ensweb.Request) *ensweb.Result {
 		errMsg := fmt.Sprintf("Failed to do signature; err: %v", err)
 		c.log.Error(errMsg)
 		commitResponse.Message = errMsg
-		return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
+		return commitResponse
 	}
 
-	commitResponse.UserDID = commitRequest.UserDID
+	commitResponse.UserDID = userDID
 	commitResponse.CommitmentHash = util.HexToStr(commitmentHash)
 	commitResponse.QuorumSignature = util.HexToStr(quorumSig)
 	commitResponse.Status = true
 	commitResponse.Message = "successfully generated commitment hash and signature"
-	return c.l.RenderJSON(req, &commitResponse, http.StatusOK)
+	return commitResponse
 }
 
 // this function is for quorums to commit the transaction-ids of an user for which they are pledging currently
