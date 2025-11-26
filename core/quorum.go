@@ -263,15 +263,33 @@ func (c *Core) APIUpdateTransTokensInQuorumsTable(quorumDID string) *model.Basic
 	}
 
 	userDID := ""
-	pledgingTxList, err := c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
+
+	transTokens, err := c.w.GetAllTransTokensBeingPledged()
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get trans-tokens in quorum's TokensTable with status 20; err: %v", err)
+		c.log.Error(errMsg)
+		response.Message = errMsg
+		return response
+	}
+
+	// remove trans-tokens quorum has already unpledged for
+	txnList, err := c.getTxIdsQuorumIsPledgingFor(transTokens, userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to remove unpledged trans-tokens in quorum's TokensTable; err: %v", err)
+		c.log.Error(errMsg)
+		response.Message = errMsg
+		return response
+	}
+	c.log.Debug("no. of txns currently pledged ", len(txnList))
+
+	// populate trans-tokens in tokens table with status 20
+	_, err = c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to update trans-tokens in quorum's TokensTable; err: %v", err)
 		c.log.Error(errMsg)
 		response.Message = errMsg
 		return response
 	}
-
-	c.log.Debug("pledging txns list ", pledgingTxList)
 
 	response.Status = true
 	response.Message = "trans-tokens updated in quorum's TokensTable with status 20"

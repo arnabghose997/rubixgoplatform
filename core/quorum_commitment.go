@@ -75,11 +75,11 @@ func (c *Core) quorumCommitmentResponse(req *ensweb.Request) *ensweb.Result {
 // this function is for quorums to commit the transaction-ids of an user for which they are pledging currently
 func (c *Core) QuorumCommitmentHash(userDID string) ([]byte, error) {
 	// fetch transaction-ids and epoch of all these trans-tokens
-	txList := make([]wallet.TxnEpoch, 0)
+	var txList []wallet.TxnEpoch
 
 	// collect trans tokens currently pledging for : 2 ways :
 	// 1. get trans-tokens from TokensTable with status 20
-	transTokens, err := c.w.GetTransTokensBeingPledged(userDID)
+	transTokens, err := c.w.GetTransTokensBeingPledgedByDID(userDID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,6 @@ func (c *Core) QuorumCommitmentHash(userDID string) ([]byte, error) {
 			c.log.Error("err ", err)
 			return nil, err
 		}
-
 	} else {
 		txList, err = c.getTxIdsQuorumIsPledgingFor(transTokens, userDID)
 		if err != nil {
@@ -135,7 +134,10 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 			tokenType = PartString
 		}
 		latestBlock := c.w.GetLatestTokenBlock(transToken.TokenID, c.TokenType(tokenType))
-
+		if latestBlock == nil {
+			removeTransTokensList = append(removeTransTokensList, transToken)
+			continue
+		}
 		//	2. get txn-id
 		txnId := latestBlock.GetTid()
 		// if transaction-id is empty in latest block, then remove the trans-token from TokensTable
@@ -154,20 +156,13 @@ func (c *Core) getTxIdsQuorumIsPledgingFor(transTokensList []wallet.Token, userD
 			removeTransTokensList = append(removeTransTokensList, transToken)
 			continue
 		}
-		// txn id found in latest block and in TokenStateHash table,
-		// confirm it exists in TokensTable with status 20
-		_, err = c.w.ReadTransTokenWithTokenIdAndDID(transToken.TokenID, userDID)
-		if err != nil {
-			// add it to tokens table if it doesn't exist already
-			transToken.DID = userDID
-			transToken.TokenStatus = wallet.QuorumPledgedForThisToken
+
+		// check if txn id stored in table, matches with the one in latest block
+		// update the txn_id and owner did if it doesn't match
+		if transToken.TransactionID != txnId {
 			transToken.TransactionID = txnId
-			err = c.w.AddTransTokenBeingPledged(transToken)
-			if err != nil {
-				// DO NOT RETURN ERROR, continue adding txnId
-				errMsg := fmt.Sprintf("failed to write trans-tokens to TokensTable, err : %v", err)
-				c.log.Error(errMsg)
-			}
+			transToken.DID = latestBlock.GetOwner()
+			_ = c.w.UpdateToken(&transToken)
 		}
 		// add it to txn list to commit
 		txnList = append(txnList, wallet.TxnEpoch{

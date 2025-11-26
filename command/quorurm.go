@@ -95,6 +95,7 @@ func (cmd *Command) UpdateTransTokensInQuorumsTable() {
 	if !response.Status {
 		errMsg := fmt.Sprintf("status : %t, message : %v", response.Status, response.Message)
 		cmd.log.Error(errMsg)
+		return
 	}
 	msg := fmt.Sprintf("status : %t, message : %v", response.Status, response.Message)
 	cmd.log.Info(msg)

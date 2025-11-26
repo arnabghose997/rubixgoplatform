@@ -1947,8 +1947,24 @@ func (w *Wallet) GetTxnAmountFromFullNode(txnID string) (*model.FullNodeTxnHisto
 	return txnAmountInfo, nil
 }
 
-// get tokens with status QuorumPledgedForThisToken = 20
-func (w *Wallet) GetTransTokensBeingPledged(userDID string) ([]Token, error) {
+// get all tokens with status QuorumPledgedForThisToken = 20
+func (w *Wallet) GetAllTransTokensBeingPledged() ([]Token, error) {
+	transTokens := make([]Token, 0)
+	err := w.s.Read(TokenStorage, &transTokens, "token_status=?", QuorumPledgedForThisToken)
+	if err != nil {
+		if strings.Contains(err.Error(), "no records found") {
+			return transTokens, nil
+		} else {
+			errMsg := fmt.Sprintf("Failed to get trans-tokens quorum is pledging for; err : %v", err)
+			w.log.Error(errMsg)
+			return nil, fmt.Errorf("%v", errMsg)
+		}
+	}
+	return transTokens, nil
+}
+
+// get tokens with status QuorumPledgedForThisToken = 20 and did = user did
+func (w *Wallet) GetTransTokensBeingPledgedByDID(userDID string) ([]Token, error) {
 	transTokens := make([]Token, 0)
 	err := w.s.Read(TokenStorage, &transTokens, "did=? AND token_status=?", userDID, QuorumPledgedForThisToken)
 	if err != nil {

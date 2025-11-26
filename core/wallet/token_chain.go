@@ -1234,8 +1234,13 @@ func (w *Wallet) GetPledgingTxnList(tokenType int, userDID string) ([]TxnEpoch, 
 func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int, txnId string, latestBlock *block.Block) error {
 	ownerDID := latestBlock.GetOwner()
 	// check if token exists in table, if not, add token info to list
-	storedTokenInfo, err := w.ReadTransTokenWithTokenIdAndDID(tokenId, ownerDID)
+	storedTokenInfo, err := w.ReadToken(tokenId)
 	if err != nil {
+		if !strings.Contains(err.Error(), "no records found") {
+			w.log.Error("token exists in table, but failed to read it, err ", err)
+			return nil
+		}
+		w.log.Error("err ", err)
 		w.log.Debug("adding new row for token ", tokenId, "with tx id ", txnId)
 		var tokenValue float64
 		genesisBlock := w.getGenesisBlock(tokenType, tokenId)
@@ -1261,11 +1266,22 @@ func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int
 			w.log.Error(errMsg)
 			return fmt.Errorf("%v", errMsg)
 		}
-	} else if storedTokenInfo.TransactionID == "" {
+		return nil
+	}
+	// token info should be updated as per the latest block info
+	if storedTokenInfo.DID != ownerDID {
+		w.log.Debug("updating token", tokenId, "with did ", ownerDID)
+		storedTokenInfo.DID = ownerDID
+	}
+	if storedTokenInfo.TokenStatus != QuorumPledgedForThisToken {
+		w.log.Debug("updating token", tokenId, "with status ", QuorumPledgedForThisToken)
+		storedTokenInfo.TokenStatus = QuorumPledgedForThisToken
+	}
+	if storedTokenInfo.TransactionID != txnId {
 		w.log.Debug("updating token ", tokenId, " with txn id ", txnId)
 		storedTokenInfo.TransactionID = txnId
-		_ = w.UpdateToken(storedTokenInfo)
 	}
+	_ = w.UpdateToken(storedTokenInfo)
 	return nil
 }
 
