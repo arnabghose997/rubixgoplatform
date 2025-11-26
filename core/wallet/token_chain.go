@@ -1151,12 +1151,17 @@ func (w *Wallet) GetPledgingTxnList(tokenType int, userDID string) ([]TxnEpoch, 
 
 	tokenIds, err := w.GetAllTokenChains(tokenType)
 	if err != nil {
+		w.log.Error("failed to get all token chains")
 		return nil, err
 	}
+	w.log.Debug("got total tokens ", len(tokenIds))
 
 	for _, tokenId := range tokenIds {
+		w.log.Debug("************processing token ", tokenId, "***************")
+
 		latestBlock := w.GetLatestTokenBlock(tokenId, tokenType)
 		if latestBlock == nil {
+			w.log.Debug("could not get latest block from token chain for token ", tokenId)
 			continue
 		}
 
@@ -1165,7 +1170,10 @@ func (w *Wallet) GetPledgingTxnList(tokenType int, userDID string) ([]TxnEpoch, 
 		if txnId == "" {
 			continue
 		}
+		quorumSig, _ := latestBlock.GetQuorumSignatureList()
+		w.log.Debug("quorums sig ", quorumSig)
 
+		w.log.Debug("************** txn id ", txnId)
 		tokenOwner := latestBlock.GetOwner()
 
 		// check if txnId is already added to the pledgingTxnList,
@@ -1198,6 +1206,9 @@ func (w *Wallet) GetPledgingTxnList(tokenType int, userDID string) ([]TxnEpoch, 
 			}
 			continue
 		}
+
+		w.log.Debug("quorum is pledging for the token ", tokenId, " with txn id ", txnId)
+
 		// since the quorum is pledging for this transaction block,
 		// so add this token to TokensTable with status 20 and add the txnId to the pledgingTxnList
 		err = w.AddTransTokenToQuorumsTokensTable(tokenId, tokenType, txnId, latestBlock)
@@ -1225,12 +1236,13 @@ func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int
 	// check if token exists in table, if not, add token info to list
 	storedTokenInfo, err := w.ReadTransTokenWithTokenIdAndDID(tokenId, ownerDID)
 	if err != nil {
+		w.log.Debug("adding new row for token ", tokenId, "with tx id ", txnId)
 		var tokenValue float64
 		genesisBlock := w.getGenesisBlock(tokenType, tokenId)
 		transType := genesisBlock.GetTransType()
 		switch transType {
 		case block.TokenMigratedType:
-			tokenValue = 1.0     // all the tokens with genesis block type as "03" are whole tokens
+			tokenValue = 1.0 // all the tokens with genesis block type as "03" are whole tokens
 		case block.TokenGeneratedType:
 			tokenValue = genesisBlock.GetTokenValue()
 		}
@@ -1247,9 +1259,10 @@ func (w *Wallet) AddTransTokenToQuorumsTokensTable(tokenId string, tokenType int
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to write trans-token %v to TokensTable, err : %v", tokenId, err)
 			w.log.Error(errMsg)
-			return fmt.Errorf("%v",errMsg)
+			return fmt.Errorf("%v", errMsg)
 		}
 	} else if storedTokenInfo.TransactionID == "" {
+		w.log.Debug("updating token ", tokenId, " with txn id ", txnId)
 		storedTokenInfo.TransactionID = txnId
 		_ = w.UpdateToken(storedTokenInfo)
 	}
@@ -1269,14 +1282,15 @@ func (w *Wallet) GetAllTokenChains(tt int) ([]string, error) {
 
 	for iter.Next() {
 		key := string(iter.Key())
-
+		tokenType := tcsType(tt)
 		// Keys look like: tt-<tokenId> OR tt-<tokenId>-<blockId>
-		if !strings.HasPrefix(key, fmt.Sprintf("%d-", tt)) {
+		if !strings.HasPrefix(key, tokenType) {
 			continue
 		}
 
 		parts := strings.Split(key, "-")
 		if len(parts) < 2 {
+			w.log.Error("couldn't extract tokenId from key ", key)
 			continue
 		}
 
@@ -1285,6 +1299,7 @@ func (w *Wallet) GetAllTokenChains(tt int) ([]string, error) {
 	}
 
 	// Convert to slice
+	w.log.Debug("total tokens extracted from level db is ", len(tokenSet))
 	tokenIds := make([]string, 0, len(tokenSet))
 	for t := range tokenSet {
 		tokenIds = append(tokenIds, t)

@@ -248,8 +248,8 @@ func saveQuorumsToFile(qds []QuorumData, fileName string) error {
 	return nil
 }
 
-// fetch trans-tokens, for which quorum is pledging currently, and 
-// update their details in TokensTable with status 20 
+// fetch trans-tokens, for which quorum is pledging currently, and
+// update their details in TokensTable with status 20
 func (c *Core) APIUpdateTransTokensInQuorumsTable(quorumDID string) *model.BasicResponse {
 	response := &model.BasicResponse{
 		Status: false,
@@ -263,13 +263,15 @@ func (c *Core) APIUpdateTransTokensInQuorumsTable(quorumDID string) *model.Basic
 	}
 
 	userDID := ""
-	_, err := c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
+	pledgingTxList, err := c.w.GetPledgingTransactionsFromLevelDB(c.testNet, userDID)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to update trans-tokens in quorum's TokensTable; err: %v", err)
 		c.log.Error(errMsg)
 		response.Message = errMsg
 		return response
 	}
+
+	c.log.Debug("pledging txns list ", pledgingTxList)
 
 	response.Status = true
 	response.Message = "trans-tokens updated in quorum's TokensTable with status 20"

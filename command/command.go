@@ -115,6 +115,7 @@ const (
 	SetAsyncFTStatusCmd            string = "setasyncftstatus"
 	FixFTCreatorCmd                string = "fix-ft-creator"
 	GetFTCreatorStatsCmd           string = "get-ft-creator-stats"
+	UpdateQuorumTransTokensCmd     string = "update-quorum-trans-tokens"
 )
 
 var commands = []string{VersionCmd,
@@ -188,6 +189,7 @@ var commands = []string{VersionCmd,
 	SetAsyncFTStatusCmd,
 	FixFTCreatorCmd,
 	GetFTCreatorStatsCmd,
+	UpdateQuorumTransTokensCmd,
 }
 
 var commandsHelp = []string{"To get tool version",
@@ -999,6 +1001,8 @@ func Run(args []string) {
 		cmd.fixFTCreator()
 	case GetFTCreatorStatsCmd:
 		cmd.getFTCreatorStats()
+	case UpdateQuorumTransTokensCmd:
+		cmd.UpdateTransTokensInQuorumsTable()
 	default:
 		cmd.log.Error("Invalid command")
 	}
