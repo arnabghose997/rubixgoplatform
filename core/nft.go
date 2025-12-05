@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	ipfsnode "github.com/ipfs/go-ipfs-api"
 	"github.com/rubixchain/rubixgoplatform/contract"
 	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
@@ -34,9 +35,33 @@ type FetchNFTRequest struct {
 	NFTPath string
 }
 
+type TokenRecoveryResponseFullNode struct {
+	MsgType string       `json:"msgType"`
+	Info    FullNodeInfo `json:"info"`
+}
+
+type FullNodeInfo struct {
+	FullNodePeerID      string `json:"Full Node Peer ID"`
+	FullNodeDID         string `json:"Fullnode DID"`
+	FullNodeConfirmFlag bool   `json:"full_node_confirm_flag"`
+	TokenBlocksChecksum string `json:"token blocks checksum"`
+}
+
+type TokenRecoveryResponseValidator struct {
+	MsgType   string        `json:"msgType"`
+	Info      ValidatorInfo `json:"info"`
+	Signature string        `json:"signature"`
+}
+
+type ValidatorInfo struct {
+	ValidatorPeerID     string `json:"ValidatorPeerID"`
+	ValidatorDID        string `json:"ValidatorDID"`
+	TransactionChecksum string `json:"TransactionChecksum"`
+}
+
 func (c *Core) CreateNFTRequest(requestID string, createNFTRequest NFTReq) {
 	defer os.RemoveAll(createNFTRequest.NFTPath)
-	createNFTResponse := c.createNFT(requestID, createNFTRequest)
+	createNFTResponse := c.createNFT(createNFTRequest, false)
 	didChannel := c.GetWebReq(requestID)
 	if didChannel == nil {
 		c.log.Error("failed to get web request", "requestID", requestID)
@@ -44,18 +69,30 @@ func (c *Core) CreateNFTRequest(requestID string, createNFTRequest NFTReq) {
 	didChannel.OutChan <- createNFTResponse
 }
 
-func (c *Core) createNFT(requestID string, createNFTRequest NFTReq) *model.BasicResponse {
+func (c *Core) createNFT(createNFTRequest NFTReq, masterNFT bool) *model.BasicResponse {
 	basicResponse := &model.BasicResponse{
 		Status: false,
 	}
-	nftFolderHash, err := c.ipfsOps.AddDir(createNFTRequest.NFTPath)
-	if err != nil {
-		c.log.Error("Failed to add nft file to IPFS", "err", err)
-		return basicResponse
+
+	var artifactHash string
+
+	// If NOT master NFT, upload folder to IPFS
+	if !masterNFT {
+		nftFolderHash, err := c.ipfsOps.AddDir(createNFTRequest.NFTPath)
+		if err != nil {
+			c.log.Error("Failed to add nft file to IPFS", "err", err)
+			return basicResponse
+		}
+		artifactHash = nftFolderHash
+	} else {
+		// For master NFT, use provided artifact hash value
+		artifactHash = createNFTRequest.Artifact
 	}
+
+	// Create NFT struct based on condition
 	nft := NFTIpfsInfo{
 		DID:          createNFTRequest.DID,
-		ArtifactHash: nftFolderHash,
+		ArtifactHash: artifactHash,
 	}
 
 	nftJSON, err := json.MarshalIndent(nft, "", "  ")
@@ -70,23 +107,20 @@ func (c *Core) createNFT(requestID string, createNFTRequest NFTReq) *model.Basic
 		return basicResponse
 	}
 
-	c.log.Info("The NFT token hash generated ", nftHash)
+	c.log.Info("The NFT token hash generated", "nftHash", nftHash)
 
-	// Set the response status and message
-	nftTokenResponse := &SmartContractTokenResponse{
-		Message: "NFT Token generated successfully",
-		Result:  nftHash,
-	}
-
-	_, err = c.RenameNFTFolder(createNFTRequest.NFTPath, nftHash)
-	if err != nil {
-		c.log.Error("Failed to rename NFT folder", "err", err)
-		return basicResponse
+	// Rename folder only if not master NFT
+	if !masterNFT {
+		_, err = c.RenameNFTFolder(createNFTRequest.NFTPath, nftHash)
+		if err != nil {
+			c.log.Error("Failed to rename NFT folder", "err", err)
+			return basicResponse
+		}
 	}
 
 	basicResponse.Status = true
-	basicResponse.Message = nftTokenResponse.Message
-	basicResponse.Result = nftTokenResponse.Result
+	basicResponse.Message = "NFT Token generated successfully"
+	basicResponse.Result = nftHash
 
 	return basicResponse
 }
@@ -102,6 +136,9 @@ func (c *Core) DeployNFT(reqID string, deployReq model.DeployNFTRequest) {
 }
 
 func (c *Core) deployNFT(reqID string, deployReq model.DeployNFTRequest) *model.BasicResponse {
+	if reqID == "" {
+		reqID = uuid.New().String() // fallback for internal calls
+	}
 	st := time.Now()
 	txEpoch := int(st.Unix())
 
@@ -467,15 +504,145 @@ func (c *Core) executeNFT(reqID string, executeReq *model.ExecuteNFTRequest) *mo
 	return resp
 }
 
-func (c *Core) SubscribeNFTSetup(requestID string, topic string) error {
-	reqID = requestID
-	c.l.AddRoute(APIPeerStatus, "GET", c.peerStatus)
+func (c *Core) SubscribeNFTSetup(topic string) error {
 	err := c.ps.SubscribeTopic(topic, c.NFTCallBack)
 	if err != nil {
 		c.log.Error("Unable to subscribe NFT", topic)
 	}
 	c.log.Info("Subscribing NFT " + topic + " is successful")
 	return err
+}
+
+func (c *Core) handleMasterNFTCallback(NFTEvent model.NFTEvent) error {
+	c.log.Info("Master NFT executed, invoking callback...", "nft", NFTEvent.NFT)
+
+	switch {
+	case len(c.qc) > 0:
+		c.log.Info("This is a quorum node")
+		if err := c.handleMasterNFTOnQuorum(&NFTEvent); err != nil {
+			return fmt.Errorf("quorum callback failed: %w", err)
+		}
+
+	case c.fullNode:
+		c.log.Info("This is the full node")
+		if err := c.handleMasterNFTOnFullNode(&NFTEvent); err != nil {
+			return fmt.Errorf("full node callback failed: %w", err)
+		}
+
+	case c.IsDIDExist("", NFTEvent.ExecutorDid):
+		c.log.Info("This is a user node")
+		if err := c.handleMasterNFTOnUser(&NFTEvent); err != nil {
+			return fmt.Errorf("user callback failed: %w", err)
+		}
+
+	default:
+		c.log.Warn("Unknown node type, ignoring callback")
+	}
+
+	return nil
+}
+
+func (c *Core) subscribeEphemeralNFT(executorDid string, transactionId string) error {
+	createNFtReq := &NFTReq{
+		DID:      executorDid,
+		Artifact: transactionId,
+	}
+
+	b, err := json.Marshal(createNFtReq)
+	if err != nil {
+		return fmt.Errorf("failed to marshal NFT request: %w", err)
+	}
+
+	nftId, err := IpfsAddWithBackoff(c.ipfs, bytes.NewBuffer(b), ipfsnode.Pin(false), ipfsnode.OnlyHash(true))
+	if err != nil {
+		return fmt.Errorf("failed to get NFT ID from IPFS: %w", err)
+	}
+
+	c.log.Info("The nft id created is:", nftId)
+
+	if err := c.SubscribeNFTSetup(nftId); err != nil {
+		return fmt.Errorf("failed to subscribe to NFT setup: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Core) handleMasterNFTOnFullNode(NFTEvent *model.NFTEvent) error {
+	c.log.Info("Master NFT Executed, invoking callback in FullNode", "nft", NFTEvent.NFT)
+
+	if err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, ""); err != nil {
+		return fmt.Errorf("failed to subscribe ephemeral NFT: %w", err)
+	}
+
+	replyMessage := TokenRecoveryResponseFullNode{
+		MsgType: "token_recovery_response",
+		Info: FullNodeInfo{
+			FullNodePeerID:      "peer123",
+			FullNodeDID:         "did:fullnode",
+			FullNodeConfirmFlag: true,
+			TokenBlocksChecksum: "abc123",
+		},
+	}
+
+	c.log.Info("The message which is being sent :", replyMessage)
+
+	return nil
+}
+
+func (c *Core) handleMasterNFTOnQuorum(NFTEvent *model.NFTEvent) error {
+	c.log.Info("Master NFT Executed on Quorum node")
+
+	if err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, ""); err != nil {
+		return fmt.Errorf("failed to subscribe the ephemeral NFT: %w", err)
+	}
+
+	replyMessage := TokenRecoveryResponseValidator{
+		MsgType: "token_recovery_response",
+		Info: ValidatorInfo{
+			ValidatorPeerID:     "",
+			ValidatorDID:        "",
+			TransactionChecksum: "",
+		},
+	}
+
+	c.log.Info("The reply message is :", replyMessage)
+
+	return nil
+}
+
+func (c *Core) handleMasterNFTOnUser(NFTEvent *model.NFTEvent) error {
+	c.log.Info("Master NFT executed on User node, creating Ephemeral NFT", "nft", NFTEvent.NFT)
+
+	createNFtReq := &NFTReq{
+		DID:      NFTEvent.ExecutorDid,
+		Artifact: "Transaction ID",
+	}
+
+	response := c.createNFT(*createNFtReq, true)
+	if !response.Status {
+		return fmt.Errorf("failed to create ephemeral NFT: %v", response.Message)
+	}
+
+	nftId, ok := response.Result.(string)
+	if !ok {
+		return fmt.Errorf("failed to convert nftId to string")
+	}
+
+	deployNFTReq := &model.DeployNFTRequest{
+		NFT:        nftId,
+		DID:        NFTEvent.ExecutorDid,
+		QuorumType: 2,
+		NFTValue:   0,
+	}
+
+	c.log.Info("Deploying Ephemeral NFT", "nftID", nftId)
+
+	deployResponse := c.deployNFT("", *deployNFTReq)
+	if !deployResponse.Status {
+		return fmt.Errorf("failed to deploy NFT: %v", deployResponse.Message)
+	}
+
+	return nil
 }
 
 func (c *Core) NFTCallBack(peerID string, topic string, data []byte) {
@@ -536,6 +703,10 @@ func (c *Core) NFTCallBack(peerID string, topic string, data []byte) {
 			c.log.Error("nft callback: reciever DID is not same as the owner of NFT extract from its latest token block")
 			return
 		}
+	}
+
+	if newEvent.NFT == c.cfg.MasterNFT {
+		go c.handleMasterNFTCallback(newEvent)
 	}
 
 	var tokenStatus int

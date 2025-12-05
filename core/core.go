@@ -173,6 +173,7 @@ func InitConfig(configFile string, encKey string, node uint16, addr string) erro
 			NodeAddress: addr,
 			NodePort:    fmt.Sprintf("%d", nodePort),
 			DirPath:     "./",
+			MasterNFT:   "",
 			CfgData: config.ConfigData{
 				Ports: config.Ports{
 					SendPort:     (SendPort + node),
