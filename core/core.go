@@ -16,6 +16,7 @@ import (
 	ipfsnode "github.com/ipfs/go-ipfs-api"
 	"github.com/rubixchain/rubixgoplatform/core/config"
 	"github.com/rubixchain/rubixgoplatform/core/ipfsport"
+	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/pubsub"
 	"github.com/rubixchain/rubixgoplatform/core/service"
 	"github.com/rubixchain/rubixgoplatform/core/storage"
@@ -68,6 +69,9 @@ const (
 	APIGetTokenStatus               string = "/api/get-token-status"
 	// APISendTokenChainDetails        string = "api/send-token-chain-details"
 	APITokenRecoveryQuorumCommitment string = "/api/token-recovery/quorum-commitment"
+	APISendRecoverInfo               string = "/api/send-recover-info"
+	// APISendValidatorInfo             string = "/api/send-validator-info"
+	// APISendFullNodeInfo              string = "/api/send-full-node-info"
 )
 
 const (
@@ -163,6 +167,7 @@ type Core struct {
 	fullNode             bool
 	txnProcessor         *DynamicTxnProcessor
 	RetryTokenSyncTicker *time.Ticker
+	executeNFTChan       chan model.ExecuteNFTRequest
 }
 
 func InitConfig(configFile string, encKey string, node uint16, addr string) error {

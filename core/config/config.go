@@ -74,7 +74,10 @@ type Config struct {
 	NodeAddress string     `json:"node_address"`
 	NodePort    string     `json:"node_port"`
 	DirPath     string     `json:"dir_path"`
-	CfgData     ConfigData `json:"cfg_data"`
+	// MasterNFT holds the NFT ID that should be treated as the "master" NFT.
+	// This is accessed in core as c.cfg.MasterNFT.
+	MasterNFT string     `json:"master_nft"`
+	CfgData   ConfigData `json:"cfg_data"`
 }
 
 type ServiceConfig struct {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
 	"github.com/rubixchain/rubixgoplatform/util"
+	"github.com/rubixchain/rubixgoplatform/wrapper/ensweb"
 	"github.com/rubixchain/rubixgoplatform/wrapper/uuid"
 )
 
@@ -35,28 +37,52 @@ type FetchNFTRequest struct {
 	NFTPath string
 }
 
-type TokenRecoveryResponseFullNode struct {
-	MsgType string       `json:"msgType"`
-	Info    FullNodeInfo `json:"info"`
-}
+// type TokenRecoveryResponseFullNode struct {
+// 	MsgType string       `json:"msgType"`
+// 	Info    FullNodeInfo `json:"info"`
+// }
 
-type FullNodeInfo struct {
-	FullNodePeerID      string `json:"Full Node Peer ID"`
-	FullNodeDID         string `json:"Fullnode DID"`
-	FullNodeConfirmFlag bool   `json:"full_node_confirm_flag"`
-	TokenBlocksChecksum string `json:"token blocks checksum"`
-}
+// type FullNodeInfo struct {
+// 	FullNodePeerID      string `json:"Full Node Peer ID"`
+// 	FullNodeDID         string `json:"Fullnode DID"`
+// 	FullNodeConfirmFlag bool   `json:"full_node_confirm_flag"`
+// 	TokenBlocksChecksum string `json:"token blocks checksum"`
+// }
 
-type TokenRecoveryResponseValidator struct {
-	MsgType   string        `json:"msgType"`
-	Info      ValidatorInfo `json:"info"`
-	Signature string        `json:"signature"`
+// type TokenRecoveryResponseValidator struct {
+// 	MsgType   string        `json:"msgType"`
+// 	Info      ValidatorInfo `json:"info"`
+// 	Signature string        `json:"signature"`
+// }
+
+// type ValidatorInfo struct {
+// 	ValidatorPeerID     string `json:"ValidatorPeerID"`
+// 	ValidatorDID        string `json:"ValidatorDID"`
+// 	TransactionChecksum string `json:"TransactionChecksum"`
+// }
+
+type RecoveryMessage struct {
+	Version      int             `json:"version"`
+	MsgType      string          `json:"msgType"` // e.g., token_recovery_response
+	Role         string          `json:"role"`    // validator | fullnode | future roles
+	MessageID    string          `json:"messageId"`
+	Timestamp    int64           `json:"timestamp"`
+	Signature    string          `json:"signature"`
+	Info         json.RawMessage `json:"info"` // dynamic decoding based on Role
+	EphemeralNFT string          `json:"ephemeralNft"`
 }
 
 type ValidatorInfo struct {
-	ValidatorPeerID     string `json:"ValidatorPeerID"`
-	ValidatorDID        string `json:"ValidatorDID"`
-	TransactionChecksum string `json:"TransactionChecksum"`
+	ValidatorPeerID     string `json:"validatorPeerId"`
+	ValidatorDID        string `json:"validatorDid"`
+	TransactionChecksum string `json:"transactionChecksum"`
+}
+
+type FullNodeInfo struct {
+	FullNodePeerID      string `json:"fullNodePeerId"`
+	FullNodeDID         string `json:"fullNodeDid"`
+	FullNodeConfirmFlag bool   `json:"fullNodeConfirmFlag"`
+	TokenBlocksChecksum string `json:"tokenBlocksChecksum"`
 }
 
 func (c *Core) CreateNFTRequest(requestID string, createNFTRequest NFTReq) {
@@ -542,7 +568,7 @@ func (c *Core) handleMasterNFTCallback(NFTEvent model.NFTEvent) error {
 	return nil
 }
 
-func (c *Core) subscribeEphemeralNFT(executorDid string, transactionId string) error {
+func (c *Core) subscribeEphemeralNFT(executorDid string, transactionId string) (string, error) {
 	createNFtReq := &NFTReq{
 		DID:      executorDid,
 		Artifact: transactionId,
@@ -550,38 +576,46 @@ func (c *Core) subscribeEphemeralNFT(executorDid string, transactionId string) e
 
 	b, err := json.Marshal(createNFtReq)
 	if err != nil {
-		return fmt.Errorf("failed to marshal NFT request: %w", err)
+		return "", fmt.Errorf("failed to marshal NFT request: %w", err)
 	}
 
 	nftId, err := IpfsAddWithBackoff(c.ipfs, bytes.NewBuffer(b), ipfsnode.Pin(false), ipfsnode.OnlyHash(true))
 	if err != nil {
-		return fmt.Errorf("failed to get NFT ID from IPFS: %w", err)
+		return "", fmt.Errorf("failed to get NFT ID from IPFS: %w", err)
 	}
 
 	c.log.Info("The nft id created is:", nftId)
 
 	if err := c.SubscribeNFTSetup(nftId); err != nil {
-		return fmt.Errorf("failed to subscribe to NFT setup: %w", err)
+		return "", fmt.Errorf("failed to subscribe to NFT setup: %w", err)
 	}
 
-	return nil
+	return nftId, nil
 }
 
 func (c *Core) handleMasterNFTOnFullNode(NFTEvent *model.NFTEvent) error {
 	c.log.Info("Master NFT Executed, invoking callback in FullNode", "nft", NFTEvent.NFT)
 
-	if err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, ""); err != nil {
+	nft, err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, "")
+	if err != nil {
 		return fmt.Errorf("failed to subscribe ephemeral NFT: %w", err)
 	}
 
-	replyMessage := TokenRecoveryResponseFullNode{
-		MsgType: "token_recovery_response",
-		Info: FullNodeInfo{
-			FullNodePeerID:      "peer123",
-			FullNodeDID:         "did:fullnode",
-			FullNodeConfirmFlag: true,
-			TokenBlocksChecksum: "abc123",
-		},
+	fullNodeInfo := FullNodeInfo{
+		FullNodePeerID:      "",
+		FullNodeDID:         "",
+		FullNodeConfirmFlag: true,
+		TokenBlocksChecksum: "",
+	}
+	infoBytes, err := json.Marshal(fullNodeInfo)
+	if err != nil {
+		return fmt.Errorf("failed to marshal full node info: %w", err)
+	}
+
+	replyMessage := RecoveryMessage{
+		MsgType:      "token_recovery_response",
+		Info:         json.RawMessage(infoBytes),
+		EphemeralNFT: nft,
 	}
 
 	c.log.Info("The message which is being sent :", replyMessage)
@@ -592,24 +626,29 @@ func (c *Core) handleMasterNFTOnFullNode(NFTEvent *model.NFTEvent) error {
 func (c *Core) handleMasterNFTOnQuorum(NFTEvent *model.NFTEvent) error {
 	c.log.Info("Master NFT Executed on Quorum node")
 
-	if err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, ""); err != nil {
-		return fmt.Errorf("failed to subscribe the ephemeral NFT: %w", err)
+	nft, err := c.subscribeEphemeralNFT(NFTEvent.ExecutorDid, "")
+	if err != nil {
+		return fmt.Errorf("failed to subscribe ephemeral NFT: %w", err)
 	}
-
-	replyMessage := TokenRecoveryResponseValidator{
-		MsgType: "token_recovery_response",
-		Info: ValidatorInfo{
-			ValidatorPeerID:     "",
-			ValidatorDID:        "",
-			TransactionChecksum: "",
-		},
+	validatorInfo := ValidatorInfo{
+		ValidatorPeerID:     "",
+		ValidatorDID:        "",
+		TransactionChecksum: "",
+	}
+	infoBytes, err := json.Marshal(validatorInfo)
+	if err != nil {
+		return fmt.Errorf("failed to marshal validator info: %w", err)
+	}
+	replyMessage := RecoveryMessage{
+		MsgType:      "token_recovery_response",
+		Info:         json.RawMessage(infoBytes),
+		EphemeralNFT: nft,
 	}
 
 	c.log.Info("The reply message is :", replyMessage)
 
 	return nil
 }
-
 func (c *Core) handleMasterNFTOnUser(NFTEvent *model.NFTEvent) error {
 	c.log.Info("Master NFT executed on User node, creating Ephemeral NFT", "nft", NFTEvent.NFT)
 
@@ -644,6 +683,83 @@ func (c *Core) handleMasterNFTOnUser(NFTEvent *model.NFTEvent) error {
 
 	return nil
 }
+
+func (c *Core) Init() {
+	c.executeNFTChan = make(chan model.ExecuteNFTRequest, 100) // buffered channel optional
+	c.startExecuteNFTWorker()
+}
+
+func (c *Core) startExecuteNFTWorker() {
+	go func() {
+		for job := range c.executeNFTChan {
+			c.log.Info("Executing NFT sequentially", "executor", job.Executor, "nft", job.NFT)
+
+			req := &model.ExecuteNFTRequest{
+				Executor: job.Executor,
+				NFT:      job.NFT,
+				NFTValue: job.NFTValue,
+				NFTData:  job.NFTData,
+			}
+
+			resp := c.executeNFT("", req)
+			if resp == nil || !resp.Status {
+				c.log.Error("Sequential executeNFT failed",
+					"nft", job.NFT,
+					"executor", job.Executor,
+					"msg", resp)
+			}
+		}
+	}()
+}
+
+func (c *Core) handleValidatorRecovery(info ValidatorInfo, msg RecoveryMessage) error {
+	c.log.Info("Handling validator recovery", "info", info, "msg", msg)
+
+	nft := msg.EphemeralNFT
+
+	msgBytes, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal recovery message: %w", err)
+	}
+
+	executeJob := model.ExecuteNFTRequest{
+		Executor: info.ValidatorDID,
+		NFT:      nft,
+		NFTValue: 0,
+		NFTData:  string(msgBytes),
+	}
+
+	// Add job to sequential queue
+	c.executeNFTChan <- executeJob
+
+	return nil
+}
+
+// func (c *Core) handleValidatorRecovery(info ValidatorInfo, msg RecoveryMessage) error {
+// 	c.log.Info("Handling validator recovery", "info", info, "msg", msg)
+// 	nft := msg.EphemeralNFT
+// 	msgBytes, err := json.Marshal(msg)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to marshal recovery message: %w", err)
+// 	}
+
+// 	executeReq := &model.ExecuteNFTRequest{
+// 		Executor: info.ValidatorDID,
+// 		NFT:      nft,
+// 		NFTValue: 0,
+// 		NFTData:  string(msgBytes),
+// 	}
+
+// 	resp := c.executeNFT("", executeReq)
+// 	if resp == nil || !resp.Status {
+// 		if resp == nil {
+// 			return fmt.Errorf("executeNFT returned nil response")
+// 		}
+// 		return fmt.Errorf("executeNFT failed: %s", resp.Message)
+// 	}
+// 	// Implement validator recovery logic here
+// 	return nil
+// }
 
 func (c *Core) NFTCallBack(peerID string, topic string, data []byte) {
 	var newEvent model.NFTEvent
@@ -834,4 +950,48 @@ func (c *Core) CheckNFTFolderExists(nft string) (string, error) {
 		return "", nil // Folder does not exist
 	}
 	return "", err // Some other error occurred
+}
+
+func (c *Core) updateRecoverInfo(req *ensweb.Request) *ensweb.Result {
+	var recoverMsg RecoveryMessage
+	err := c.l.ParseJSON(req, &recoverMsg)
+	if err != nil {
+		c.log.Error("Failed to parse recovery message", "err", err)
+		return c.l.RenderJSON(req, "&commitResponse", http.StatusBadRequest)
+	}
+
+	err = c.processRecoveryMessage(recoverMsg)
+	if err != nil {
+		c.log.Error("Failed to process recovery message", "err", err)
+		return c.l.RenderJSON(req, "&commitResponse", http.StatusInternalServerError)
+	}
+
+	return c.l.RenderJSON(req, "&commitResponse", http.StatusOK)
+}
+
+func (c *Core) processRecoveryMessage(msg RecoveryMessage) error {
+	switch msg.Role {
+	case "validator":
+		var info ValidatorInfo
+		if err := json.Unmarshal(msg.Info, &info); err != nil {
+			return err
+		}
+		return c.handleValidatorRecovery(info, msg)
+
+	case "fullnode":
+		var info FullNodeInfo
+		if err := json.Unmarshal(msg.Info, &info); err != nil {
+			return err
+		}
+		return c.handleFullNodeRecovery(info, msg)
+
+	default:
+		return fmt.Errorf("unknown role: %s", msg.Role)
+	}
+}
+
+func (c *Core) handleFullNodeRecovery(info FullNodeInfo, msg RecoveryMessage) error {
+	c.log.Info("Handling full node recovery", "info", info, "msg", msg)
+	// Implement full node recovery logic here
+	return nil
 }

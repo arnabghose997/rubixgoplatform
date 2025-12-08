@@ -233,6 +233,8 @@ func (c *Core) QuroumSetup() {
 	c.l.AddRoute(APISendFTToken, "POST", c.updateReceiverFTHandle)
 	c.l.AddRoute(APICheckPinRole, "GET", c.checkPinRole)
 	c.l.AddRoute(APITokenRecoveryQuorumCommitment, "POST", c.quorumCommitmentResponse)
+	c.l.AddRoute(APISendRecoverInfo, "POST", c.updateRecoverInfo)
+	// c.l.AddRoute(APISendFullNodeInfo, "POST", c.sendFullNodeInfo)
 	if c.arbitaryMode {
 		c.l.AddRoute(APIMapDIDArbitration, "POST", c.mapDIDArbitration)
 		c.l.AddRoute(APICheckDIDArbitration, "GET", c.chekDIDArbitration)

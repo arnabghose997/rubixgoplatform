@@ -108,6 +108,8 @@ const (
 	APIGetFailedFTDownloadStatus        string = "/api/get-failed-ft-download-status"
 	APIRecoverLostTokens                string = "/api/recover-lost-tokens"
 	APIRemoteRecoverTokens              string = "/api/remote-recover-tokens"
+	// APISendValidatorInfo                string = "/api/send-validator-info"
+	// APISendFullNodeInfo                 string = "/api/send-full-node-info"
 
 	//Below are Explorer-service API endpoints
 	APIGetAllRBTs           string = "/api/de-exp/get-rbt-list"
@@ -134,7 +136,7 @@ const (
 
 	// APIGetRBTLatestValidators string = "/api/de-exp/get-rbt-token-chain-latest-block-validators"
 	// APIGetFTLatestValidators  string = "/api/de-exp/get-ft-token-chain-latest-block-validators"
-	APIUpdateTransTokensInQuorumsTable  string = "/api/quorum/update-trans-tokens"
+	APIUpdateTransTokensInQuorumsTable string = "/api/quorum/update-trans-tokens"
 )
 
 // jwt.RegisteredClaims

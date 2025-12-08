@@ -196,6 +196,8 @@ func (s *Server) RegisterRoutes() {
 	s.AddRoute(setup.APIGetFTMigrationStatus, "GET", s.AuthHandle(s.APIGetFTMigrationStatus, false, s.AuthError, false))
 	s.AddRoute(setup.APIRetryFailedFTDownloads, "POST", s.AuthHandle(s.RetryFailedFTDownloads, false, s.AuthError, false))
 	s.AddRoute(setup.APIGetFailedFTDownloadStatus, "POST", s.AuthHandle(s.GetFailedFTDownloadStatus, false, s.AuthError, false))
+	// s.AddRoute(setup.APISendValidatorInfo, "POST", s.AuthHandle(s.APISendValidatorInfo, false, s.AuthError, false))
+	// s.AddRoute(setup.APISendFullNodeInfo, "POST", s.AuthHandle(s.APISendFullNodeInfo, false, s.AuthError, false))
 	// Token recovery doesn't need authentication - anyone should be able to recover their tokens
 	s.AddRoute(setup.APIRecoverLostTokens, "POST", s.APIRecoverLostTokens)
 	s.AddRoute(setup.APIRemoteRecoverTokens, "POST", s.APIRemoteRecoverTokens)

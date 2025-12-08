@@ -103,13 +103,13 @@ func (s *Server) APICreateNFT(req *ensweb.Request) *ensweb.Result {
 }
 
 type DeployNFTSwaggoInput struct {
-	NFT        string  `json:"nft"`
-	DID        string  `json:"did"`
-	QuorumType int     `json:"quorum_type"`
-	NFTValue   float64 `json:"nft_value"`
-	NFTData    string  `json:"nft_data"`
-	NFTMetadata string `json:"nft_metadata"`
-	NFTFileName string `json:"nft_file_name"`
+	NFT         string  `json:"nft"`
+	DID         string  `json:"did"`
+	QuorumType  int     `json:"quorum_type"`
+	NFTValue    float64 `json:"nft_value"`
+	NFTData     string  `json:"nft_data"`
+	NFTMetadata string  `json:"nft_metadata"`
+	NFTFileName string  `json:"nft_file_name"`
 }
 
 // NFT godoc
@@ -281,7 +281,7 @@ func (s *Server) APISubscribeNFT(request *ensweb.Request) *ensweb.Result {
 	}
 	topic := newSubscription.NFT
 	s.c.AddWebReq(request)
-	go s.c.SubscribeNFTSetup(request.ID, topic)
+	go s.c.SubscribeNFTSetup(topic)
 	return s.BasicResponse(request, true, "NFT subscribed successfully", nil)
 }
 
