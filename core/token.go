@@ -305,24 +305,24 @@ func (c *Core) generateTestTokens(reqID string, num int, did string) error {
 			return err
 		}
 		// publish the transaction in the network with topic : rubix_txns
-		blockHash, err := blk.GetHash()
-		if err != nil {
-			blockHash = ""
-			c.log.Error("failed to get block hash")
-		}
-		publishingTxn := &model.PubSubTxnInfo{
-			BlockHash:    blockHash,
-			TxnType:      tcb.TransactionType,
-			AssetType:    RBTTokenType,
-			PublisherDID: dc.GetDID(),
-			TxnBlock:     blk.GetBlock(),
-		}
+		// blockHash, err := blk.GetHash()
+		// if err != nil {
+		// 	blockHash = ""
+		// 	c.log.Error("failed to get block hash")
+		// }
+		// publishingTxn := &model.PubSubTxnInfo{
+		// 	BlockHash:    blockHash,
+		// 	TxnType:      tcb.TransactionType,
+		// 	AssetType:    RBTTokenType,
+		// 	PublisherDID: dc.GetDID(),
+		// 	TxnBlock:     blk.GetBlock(),
+		// }
 
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return err
-		}
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return err
+		// }
 	}
 	return nil
 }

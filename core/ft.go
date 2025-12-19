@@ -227,28 +227,28 @@ func (c *Core) createFTs(reqID string, FTName string, numFTs int, numWholeTokens
 			results <- ftResult{FTToken: ft, FTID: ftID}
 
 			// publish the transaction in the network with topic : rubix_txns
-			blockHash, err := blockObj.GetHash()
-			if err != nil {
-				c.log.Error("failed to get block hash")
-				results <- ftResult{Err: err}
-				continue
-			}
-			publishingTxn := &model.PubSubTxnInfo{
-				BlockHash:    blockHash,
-				TxnType:      tcb.TransactionType,
-				AssetType:    FTTokenType,
-				FTName:       FTName,
-				PublisherDID: dc.GetDID(),
-				CreatorDID:   dc.GetDID(),
-				TxnBlock:     blockObj.GetBlock(),
-			}
+			// blockHash, err := blockObj.GetHash()
+			// if err != nil {
+			// 	c.log.Error("failed to get block hash")
+			// 	results <- ftResult{Err: err}
+			// 	continue
+			// }
+			// publishingTxn := &model.PubSubTxnInfo{
+			// 	BlockHash:    blockHash,
+			// 	TxnType:      tcb.TransactionType,
+			// 	AssetType:    FTTokenType,
+			// 	FTName:       FTName,
+			// 	PublisherDID: dc.GetDID(),
+			// 	CreatorDID:   dc.GetDID(),
+			// 	TxnBlock:     blockObj.GetBlock(),
+			// }
 
-			err = c.publishTxn(publishingTxn)
-			if err != nil {
-				c.log.Error("Failed to publish txn", "err", err)
-				results <- ftResult{Err: err}
-				continue
-			}
+			// err = c.publishTxn(publishingTxn)
+			// if err != nil {
+			// 	c.log.Error("Failed to publish txn", "err", err)
+			// 	results <- ftResult{Err: err}
+			// 	continue
+			// }
 		}
 
 	}
@@ -340,25 +340,25 @@ func (c *Core) createFTs(reqID string, FTName string, numFTs int, numWholeTokens
 		release = false
 
 		// publish the burnt block in the network with topic : rubix_txns
-		blockHash, err := block.GetHash()
-		if err != nil {
-			c.log.Error("failed to get burnt block hash")
-			return err
-		}
-		publishingTxn := &model.PubSubTxnInfo{
-			BlockHash:    blockHash,
-			TxnType:      tcb.TransactionType,
-			AssetType:    RBTTokenType,
-			PublisherDID: dc.GetDID(),
-			TxnBlock:     block.GetBlock(),
-		}
+		// blockHash, err := block.GetHash()
+		// if err != nil {
+		// 	c.log.Error("failed to get burnt block hash")
+		// 	return err
+		// }
+		// publishingTxn := &model.PubSubTxnInfo{
+		// 	BlockHash:    blockHash,
+		// 	TxnType:      tcb.TransactionType,
+		// 	AssetType:    RBTTokenType,
+		// 	PublisherDID: dc.GetDID(),
+		// 	TxnBlock:     block.GetBlock(),
+		// }
 
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return err
-		}
-		c.log.Debug("burnt token block published ")
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return err
+		// }
+		// c.log.Debug("burnt token block published ")
 	}
 
 	// --- Batch Write FTs to Storage using WriteBatch ---

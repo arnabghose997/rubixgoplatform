@@ -668,20 +668,20 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 	}
 
 	// publish the transaction in the network with topic : rubix_txns
-	blockHash, err := nb.GetHash()
-	if err != nil {
-		blockHash = ""
-		c.log.Error("failed to get block hash")
-	}
-	publishingTxn := &model.PubSubTxnInfo{
-		BlockHash:        blockHash,
-		TransactionID:    tid,
-		TxnType:          nb.GetTransType(),
-		PublisherDID:     dc.GetDID(),
-		ReceiverDID:      sc.GetReceiverDID(),
-		TxnBlock:         nb.GetBlock(),
-		TransactionValue: reqPledgeTokens,
-	}
+	// blockHash, err := nb.GetHash()
+	// if err != nil {
+	// 	blockHash = ""
+	// 	c.log.Error("failed to get block hash")
+	// }
+	// publishingTxn := &model.PubSubTxnInfo{
+	// 	BlockHash:        blockHash,
+	// 	TransactionID:    tid,
+	// 	TxnType:          nb.GetTransType(),
+	// 	PublisherDID:     dc.GetDID(),
+	// 	ReceiverDID:      sc.GetReceiverDID(),
+	// 	TxnBlock:         nb.GetBlock(),
+	// 	TransactionValue: reqPledgeTokens,
+	// }
 
 	switch cr.Mode {
 	case RBTTransferMode:
@@ -970,13 +970,13 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}()
 
 		// publish txn
-		c.log.Debug("sender publishing txn : ", publishingTxn.TransactionID)
-		publishingTxn.AssetType = RBTTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// c.log.Debug("sender publishing txn : ", publishingTxn.TransactionID)
+		// publishingTxn.AssetType = RBTTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 		return &td, pl, pds, nil
 	case FTTransferMode:
 		if cr.ReceiverPeerID == "" {
@@ -1409,14 +1409,14 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			td.Mode = wallet.FTSelfTransferMode
 		}
 		// publish txn
-		publishingTxn.AssetType = FTTokenType
-		publishingTxn.FTName = sr.FTInfo.FTName
-		publishingTxn.CreatorDID = sr.FTInfo.CreatorDID
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = FTTokenType
+		// publishingTxn.FTName = sr.FTInfo.FTName
+		// publishingTxn.CreatorDID = sr.FTInfo.CreatorDID
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &td, pl, pds, nil
 	case PinningServiceMode:
@@ -1435,7 +1435,7 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			TokenChainBlock:    nb.GetBlock(),
 			QuorumList:         cr.QuorumList,
 			PinningServiceMode: true,
-			OperationType: cr.OperationType,
+			OperationType:      cr.OperationType,
 		}
 		// fetching quorums' info from PeerDIDTable to share with the receiver
 		for _, qrm := range sr.QuorumList {
@@ -1637,12 +1637,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			return nil, nil, nil, err
 		}
 		// publish txn
-		publishingTxn.AssetType = RBTTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = RBTTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &td, pl, pds, nil
 	case SelfTransferMode:
@@ -1795,12 +1795,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}
 
 		// publish txn
-		publishingTxn.AssetType = RBTTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = RBTTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &td, pl, pds, nil
 	case DTCommitMode:
@@ -1823,12 +1823,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			return nil, nil, nil, pledgeFinalityError
 		}
 		// publish txn
-		publishingTxn.AssetType = RBTTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = RBTTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 		return &td, pl, pds, nil
 	case SmartContractDeployMode:
 		// Create tokechain for the smart contract token and add genesys block
@@ -1914,12 +1914,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}
 
 		// publish txn
-		publishingTxn.AssetType = SmartContractTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = SmartContractTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &txnDetails, pl, pds, nil
 	case SmartContractExecuteMode:
@@ -2033,12 +2033,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}
 
 		// publish txn
-		publishingTxn.AssetType = SmartContractTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = SmartContractTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &txnDetails, pl, pds, nil
 	case NFTDeployMode:
@@ -2086,12 +2086,12 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}
 
 		// publish txn
-		publishingTxn.AssetType = NFTTokenType
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = NFTTokenType
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &txnDetails, pl, pds, nil
 	case NFTExecuteMode:
@@ -2179,13 +2179,13 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 		}
 
 		// publish txn
-		publishingTxn.AssetType = NFTTokenType
-		c.log.Error("publishing nft executed block : ", cr.NFT)
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			return nil, nil, nil, err
-		}
+		// publishingTxn.AssetType = NFTTokenType
+		// c.log.Error("publishing nft executed block : ", cr.NFT)
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	return nil, nil, nil, err
+		// }
 
 		return &txnDetails, pl, pds, nil
 

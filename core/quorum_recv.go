@@ -1934,26 +1934,26 @@ func (c *Core) updatePledgeToken(req *ensweb.Request) *ensweb.Result {
 			}
 		}
 		// publish the transaction in the network with topic : rubix_txns
-		blockHash, err := nb.GetHash()
-		if err != nil {
-			blockHash = ""
-			c.log.Error("failed to get block hash")
-		}
-		publishingTxn := &model.PubSubTxnInfo{
-			BlockHash:    blockHash,
-			TxnType:      tcb.TransactionType,
-			AssetType:    RBTTokenType,
-			PublisherDID: dc.GetDID(),
-			TxnBlock:     nb.GetBlock(),
-		}
+		// blockHash, err := nb.GetHash()
+		// if err != nil {
+		// 	blockHash = ""
+		// 	c.log.Error("failed to get block hash")
+		// }
+		// publishingTxn := &model.PubSubTxnInfo{
+		// 	BlockHash:    blockHash,
+		// 	TxnType:      tcb.TransactionType,
+		// 	AssetType:    RBTTokenType,
+		// 	PublisherDID: dc.GetDID(),
+		// 	TxnBlock:     nb.GetBlock(),
+		// }
 
-		c.log.Debug("quorum publishing pledge block : ", publishingTxn.BlockHash)
-		err = c.publishTxn(publishingTxn)
-		if err != nil {
-			c.log.Error("Failed to publish txn", "err", err)
-			crep.Message = fmt.Sprintf("Failed to publish txn, err : %v", err)
-			return
-		}
+		// c.log.Debug("quorum publishing pledge block : ", publishingTxn.BlockHash)
+		// err = c.publishTxn(publishingTxn)
+		// if err != nil {
+		// 	c.log.Error("Failed to publish txn", "err", err)
+		// 	crep.Message = fmt.Sprintf("Failed to publish txn, err : %v", err)
+		// 	return
+		// }
 	}()
 
 	// return

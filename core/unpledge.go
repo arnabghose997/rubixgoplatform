@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/rubixchain/rubixgoplatform/block"
-	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
 
 	// "github.com/rubixchain/rubixgoplatform/core/model"
@@ -222,26 +221,26 @@ func unpledgeToken(c *Core, pledgeToken string, pledgeTokenType int, quorumDID s
 	}
 
 	// publish the transaction in the network with topic : rubix_txns
-	blockHash, err := nb.GetHash()
-	if err != nil {
-		blockHash = ""
-		c.log.Error("failed to get block hash")
-	}
-	publishingTxn := &model.PubSubTxnInfo{
-		BlockHash:    blockHash,
-		TxnType:      tcb.TransactionType,
-		AssetType:    RBTTokenType,
-		PublisherDID: dc.GetDID(),
-		TxnBlock:     nb.GetBlock(),
-	}
+	// blockHash, err := nb.GetHash()
+	// if err != nil {
+	// 	blockHash = ""
+	// 	c.log.Error("failed to get block hash")
+	// }
+	// publishingTxn := &model.PubSubTxnInfo{
+	// 	BlockHash:    blockHash,
+	// 	TxnType:      tcb.TransactionType,
+	// 	AssetType:    RBTTokenType,
+	// 	PublisherDID: dc.GetDID(),
+	// 	TxnBlock:     nb.GetBlock(),
+	// }
 
-	c.log.Debug("quorum publishing unpledge block : ", publishingTxn.BlockHash)
-	err = c.publishTxn(publishingTxn)
-	if err != nil {
-		c.log.Error("Failed to publish txn", "err", err)
-		errMessage := fmt.Sprintf("Failed to publish txn, err : %v", err)
-		return "", "", fmt.Errorf("%v", errMessage)
-	}
+	// c.log.Debug("quorum publishing unpledge block : ", publishingTxn.BlockHash)
+	// err = c.publishTxn(publishingTxn)
+	// if err != nil {
+	// 	c.log.Error("Failed to publish txn", "err", err)
+	// 	errMessage := fmt.Sprintf("Failed to publish txn, err : %v", err)
+	// 	return "", "", fmt.Errorf("%v", errMessage)
+	// }
 
 	unpledgeId, err = nb.GetBlockID(pledgeToken)
 	if err != nil {
