@@ -501,13 +501,14 @@ func (c *Core) PublishTCDetails() {
 		c.log.Error("Failed to publish token chain details on startup", "err", err)
 	}
 }
-func (c *Core) SubscribeTCDetails() {
-	if c.ps == nil {
-		c.log.Warn("Cannot subscribe to token chain details: pub-sub not initialized")
-	} else if err := c.SubscribeToTokenChainDetails(); err != nil {
-		c.log.Error("Failed to subscribe to token chain details", "err", err)
-	}
-}
+
+// func (c *Core) SubscribeTCDetails() {
+// 	if c.ps == nil {
+// 		c.log.Warn("Cannot subscribe to token chain details: pub-sub not initialized")
+// 	} else if err := c.SubscribeToTokenChainDetails(); err != nil {
+// 		c.log.Error("Failed to subscribe to token chain details", "err", err)
+// 	}
+// }
 
 // This function handles received token details or transaction history details through the pubsub
 func (c *Core) SubscribeToTokenChainDetails() error {

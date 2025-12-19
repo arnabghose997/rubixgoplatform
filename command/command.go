@@ -619,10 +619,10 @@ func (cmd *Command) runApp() {
 	if cmd.publishTokenChainDetails {
 		c.PublishTCDetails()
 	}
-	if cmd.fullNode {
-		cmd.log.Info("**calling SubscribeTCDetails function***")
-		c.SubscribeTCDetails()
-	}
+	// if cmd.fullNode {
+	// 	cmd.log.Info("**calling SubscribeTCDetails function***")
+	// 	c.SubscribeTCDetails()
+	// }
 
 	// Start background job: retry failed-to-sync tokens every 1 hour
 	if cmd.fullNode {
