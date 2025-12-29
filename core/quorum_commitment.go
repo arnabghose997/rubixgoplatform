@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
@@ -70,6 +71,22 @@ func (c *Core) QuorumCommitment(userDID, quorumDID string) *QuorumCommitResponse
 	quorumSig, err := quorumSignInterface.PvtSign(commitmentHash)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to do signature; err: %v", err)
+		c.log.Error(errMsg)
+		commitResponse.Message = errMsg
+		return commitResponse
+	}
+
+	// store commitment hash in table
+	currentTime := time.Now()
+	commitmentMap := wallet.CommitmentHashMap{
+		UserDID:        userDID,
+		CommitmentHash: util.HexToStr(commitmentHash),
+		Epoch:          int(currentTime.Unix()),
+	}
+
+	err = c.w.AddCommitmentMap(commitmentMap)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to store commitment hash for user %s; err: %v", userDID, err)
 		c.log.Error(errMsg)
 		commitResponse.Message = errMsg
 		return commitResponse

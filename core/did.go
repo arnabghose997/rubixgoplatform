@@ -330,11 +330,12 @@ func (c *Core) registerDID(reqID string, did string) error {
 		return fmt.Errorf("DID does not exist")
 	}
 	pm := &PeerMap{
-		PeerID:    c.peerID,
-		DID:       did,
-		Signature: sig,
-		Time:      t,
-		DIDType:   dt.Type,
+		PeerID:           c.peerID,
+		DID:              did,
+		Signature:        sig,
+		Time:             t,
+		DIDType:          dt.Type,
+		IsChallengerNode: c.fullNode,
 	}
 	err = c.publishPeerMap(pm)
 	if err != nil {

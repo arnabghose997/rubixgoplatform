@@ -310,6 +310,13 @@ func (c *Core) SetupQuorum(didStr string, pwd string, pvtKeyPwd string) error {
 		return fmt.Errorf("DID does not exist")
 	}
 
+	// initiate quorum commitment table only for the quorum
+	err = c.w.CreateCommitmentTable()
+	if err != nil {
+		c.log.Error("failed to create commitment-hash table", "err", err)
+		return fmt.Errorf("failed to create commitment-hash table, err : %t", err)
+	}
+
 	// To support NLSS backward compatibility,
 	// If the Quorum's did is created in lite mode,
 	// it will initiate DIDQuorum_Lt, and if  it is in basic mode,

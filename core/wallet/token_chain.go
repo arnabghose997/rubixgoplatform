@@ -49,6 +49,12 @@ type TxnEpoch struct {
 	Epoch         int    `json:"epoch"`
 }
 
+type CommitmentHashMap struct {
+	UserDID        string `gorm:"user_did"`
+	CommitmentHash string `gorm:"commitment_hash"`
+	Epoch          int    `gorm:"epoch"`
+}
+
 func tcsType(tokenType int) string {
 	tt := "wt"
 	switch tokenType {
@@ -1322,4 +1328,15 @@ func (w *Wallet) GetAllTokenChains(tt int) ([]string, error) {
 	}
 
 	return tokenIds, iter.Error()
+}
+
+// add commitment map to quorum commitment table
+func (w *Wallet) AddCommitmentMap(commitmentMap CommitmentHashMap) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	err := w.s.Write(QuorumCommitmentStorage, commitmentMap)
+	if err != nil {
+		w.log.Error("failed to add to quorum commitment table")
+	}
+	return nil
 }

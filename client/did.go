@@ -290,7 +290,7 @@ func (c *Client) CreateDIDFromPubKey(pubKey string) (string, error) {
 // Arbitrary signature
 func (c *Client) ArbitrarySignature(didStr, msg string) (*model.BasicResponse, error) {
 	signData := &model.ArbitrarySignRequest{
-		SignerDID:       didStr,
+		SignerDID: didStr,
 		MsgToSign: msg,
 	}
 	var resp model.BasicResponse

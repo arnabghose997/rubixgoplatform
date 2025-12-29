@@ -1449,7 +1449,7 @@ func (c *Core) updateReceiverToken(
 
 	// Adding quorums to DIDPeerTable of receiver
 	for _, qrm := range quorumInfo {
-		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType)
+		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType, false)
 	}
 	return updatedTokenStateHashes, senderPeer, nil
 }
@@ -1705,7 +1705,7 @@ func (c *Core) updateFTToken(senderAddress string, receiverAddress string, token
 	}
 	// Adding quorums to DIDPeerTable of receiver
 	for _, qrm := range quorumInfo {
-		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType)
+		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType, false)
 	}
 	return nil, nil
 }
@@ -1938,7 +1938,7 @@ func (c *Core) updatePledgeToken(req *ensweb.Request) *ensweb.Result {
 			PublisherDID: dc.GetDID(),
 			TxnBlock:     nb.GetBlock(),
 		}
-	
+
 		c.log.Debug("quorum publishing pledge block : ", publishingTxn.BlockHash)
 		err = c.publishTxn(publishingTxn)
 		if err != nil {
@@ -1947,7 +1947,6 @@ func (c *Core) updatePledgeToken(req *ensweb.Request) *ensweb.Result {
 			return
 		}
 	}()
-
 
 	// return
 	crep.Status = true

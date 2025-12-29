@@ -19,11 +19,12 @@ const (
 )
 
 type PeerMap struct {
-	PeerID    string `json:"peer_id"`
-	DID       string `json:"did"`
-	DIDType   int    `json:"did_type"`
-	Signature []byte `json:"signature"`
-	Time      string `json:"time"`
+	PeerID           string `json:"peer_id"`
+	DID              string `json:"did"`
+	DIDType          int    `json:"did_type"`
+	Signature        []byte `json:"signature"`
+	Time             string `json:"time"`
+	IsChallengerNode bool   `json:"is_challenger_node"`
 }
 
 // PingSetup will setup the ping route
@@ -60,7 +61,7 @@ func (c *Core) peerCallback(peerID string, topic string, data []byte) {
 	if err != nil || !st {
 		return
 	}
-	c.w.AddDIDPeerMap(m.DID, m.PeerID, m.DIDType)
+	c.w.AddDIDPeerMap(m.DID, m.PeerID, m.DIDType, m.IsChallengerNode)
 }
 
 func (c *Core) peerStatus(req *ensweb.Request) *ensweb.Result {
@@ -170,7 +171,7 @@ func (c *Core) AddPeerDetails(peerDetail wallet.DIDPeerMap) error {
 		c.log.Error("DIDType is nil in peerDetail", "did", peerDetail.DID)
 		return fmt.Errorf("DIDType cannot be nil")
 	}
-	err := c.w.AddDIDPeerMap(peerDetail.DID, peerDetail.PeerID, *peerDetail.DIDType)
+	err := c.w.AddDIDPeerMap(peerDetail.DID, peerDetail.PeerID, *peerDetail.DIDType, peerDetail.IsChallengerNode)
 	if err != nil {
 		c.log.Error("Failed to add PeerDetails to DIDPeerTable", "err", err)
 		return err

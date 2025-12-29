@@ -47,6 +47,7 @@ const (
 	FullNodeNFTContentTable        string = "nft_content_table"
 	FullNodeSCContentTable         string = "sc_content_table"
 	FullnodeDoubleSpentTokensTable string = "DoubleSpentTokensTable"
+	QuorumCommitmentStorage        string = "QuorumCommitmentTable"
 )
 
 type WalletConfig struct {
@@ -325,4 +326,13 @@ type StorageType = storage.StorageType
 // S returns the storage interface (for batch writes)
 func (w *Wallet) S() storage.Storage {
 	return w.s
+}
+
+func (w *Wallet) CreateCommitmentTable() error {
+	err := w.s.Init(QuorumCommitmentStorage, &CommitmentHashMap{}, true)
+	if err != nil {
+		w.log.Error("Failed to initialize commitment-hash table", "err", err)
+		return err
+	}
+	return nil
 }

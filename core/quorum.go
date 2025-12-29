@@ -212,7 +212,7 @@ func (c *Core) AddFaucetQuorums() {
 	var qds []QuorumData
 	for _, quorum := range faucetQuorumList {
 		peerID, did, _ := util.ParseAddress(quorum)
-		c.w.AddDIDPeerMap(did, peerID, 4)
+		c.w.AddDIDPeerMap(did, peerID, 4, false)
 		qd := QuorumData{
 			Type:    2,
 			Address: did,
