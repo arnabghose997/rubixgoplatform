@@ -16,11 +16,10 @@ type DIDType struct {
 }
 
 type DIDPeerMap struct {
-	DID              string `gorm:"column:did;primaryKey"`
-	DIDType          *int   `gorm:"column:did_type"`
-	PeerID           string `gorm:"column:peer_id"`
-	DIDLastChar      string `gorm:"column:did_last_char"`
-	IsChallengerNode bool   `gorm:"column:is_challenger_node"`
+	DID         string `gorm:"column:did;primaryKey"`
+	DIDType     *int   `gorm:"column:did_type"`
+	PeerID      string `gorm:"column:peer_id"`
+	DIDLastChar string `gorm:"column:did_last_char"`
 }
 
 func (w *Wallet) IsRootDIDExist() bool {
@@ -101,7 +100,7 @@ func (w *Wallet) IsDIDExist(did string) bool {
 	return true
 }
 
-func (w *Wallet) AddDIDPeerMap(did string, peerID string, didType int, isChallengerNode bool) error {
+func (w *Wallet) AddDIDPeerMap(did string, peerID string, didType int) error {
 	lastChar, err := w.GetLastChar(did)
 	if err != nil {
 		return err
@@ -120,11 +119,10 @@ func (w *Wallet) AddDIDPeerMap(did string, peerID string, didType int, isChallen
 	if err != nil {
 		// Not found — insert new record
 		newRecord := DIDPeerMap{
-			DID:              did,
-			PeerID:           peerID,
-			DIDLastChar:      lastChar,
-			DIDType:          &didType,
-			IsChallengerNode: isChallengerNode,
+			DID:         did,
+			PeerID:      peerID,
+			DIDLastChar: lastChar,
+			DIDType:     &didType,
 		}
 		return w.s.Write(DIDPeerStorage, &newRecord)
 	}
@@ -135,7 +133,7 @@ func (w *Wallet) AddDIDPeerMap(did string, peerID string, didType int, isChallen
 	sameLastChar := existing.DIDLastChar == lastChar
 
 	// If all match, nothing to update
-	if samePeerID && sameDIDType && sameLastChar && existing.IsChallengerNode {
+	if samePeerID && sameDIDType && sameLastChar {
 		return nil
 	}
 
@@ -143,12 +141,6 @@ func (w *Wallet) AddDIDPeerMap(did string, peerID string, didType int, isChallen
 	existing.PeerID = peerID
 	existing.DIDType = &didType
 	existing.DIDLastChar = lastChar
-
-	// update challenger node boolean, only if it is not already true;
-	// Else do not modify the challeger node status
-	if !existing.IsChallengerNode {
-		existing.IsChallengerNode = isChallengerNode
-	}
 
 	return w.s.Update(DIDPeerStorage, &existing, "did=?", did)
 }

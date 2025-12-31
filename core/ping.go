@@ -151,7 +151,7 @@ func (c *Core) GetPeerdidTypeResponse(req *ensweb.Request) *ensweb.Result { //Pi
 			c.log.Debug("could not convert string to integer:", err1)
 		}
 
-		err2 := c.w.AddDIDPeerMap(peerDID, peerPeerID, peerDIDTypeInt, false)
+		err2 := c.w.AddDIDPeerMap(peerDID, peerPeerID, peerDIDTypeInt)
 		if err2 != nil {
 			c.log.Debug("could not add quorum details to DID peer table:", err2)
 		}

@@ -1449,7 +1449,7 @@ func (c *Core) updateReceiverToken(
 
 	// Adding quorums to DIDPeerTable of receiver
 	for _, qrm := range quorumInfo {
-		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType, false)
+		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType)
 	}
 	return updatedTokenStateHashes, senderPeer, nil
 }
@@ -1705,7 +1705,7 @@ func (c *Core) updateFTToken(senderAddress string, receiverAddress string, token
 	}
 	// Adding quorums to DIDPeerTable of receiver
 	for _, qrm := range quorumInfo {
-		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType, false)
+		c.w.AddDIDPeerMap(qrm.DID, qrm.PeerID, *qrm.DIDType)
 	}
 	return nil, nil
 }
