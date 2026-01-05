@@ -4,9 +4,9 @@ const FaucetName = "faucettestrbt"
 
 var TokenMap = map[int]int{
 	0:  0,
-	1:  5000000,
+	1:  4300000,
 	2:  2425000,
-	3:  2188563,
+	3:  2303750,
 	4:  2188563,
 	5:  2079134,
 	6:  1975178,

@@ -87,6 +87,16 @@ type RBTContent struct {
 	RBTContent string `gorm:"column:rbt_content"`
 }
 
+type NewTokensCount struct {
+	SLNumber        int64   `gorm:"column:sl_number;primaryKey;autoIncrement"`
+	DID             string  `gorm:"column:did"`
+	Level           int     `gorm:"colummn:level"`
+	RangeLowerBound int     `gorm:"column:range_lower_bound"`
+	RangeUpperBound int     `gorm:"column:range_upper_bound"`
+	TokenStatus     int     `gorm:"column:token_status"`
+	PendingAmount   float64 `gorm:"column:pending_amount"`
+}
+
 func (w *Wallet) CreateToken(t *Token) error {
 	return w.s.Write(TokenStorage, t)
 }
@@ -1945,4 +1955,62 @@ func (w *Wallet) GetTxnAmountFromFullNode(txnID string) (*model.FullNodeTxnHisto
 	}
 
 	return txnAmountInfo, nil
+}
+
+// This function is used by fullnode to read user's owned RBTs
+func (w *Wallet) ReadUsersRBTByStatus(userDID string, tokenStatus int) ([]SyncedRBT, error) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	var rbtList []SyncedRBT
+	err := w.fullNodeSQLDB.Read(FullNodeRBTTable, &rbtList, "owner_did=? AND token_status=?", userDID, tokenStatus)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get rbt, err : %v", err)
+		w.log.Warn(errMsg)
+		return nil, fmt.Errorf(errMsg)
+	}
+	return rbtList, nil
+}
+
+// assign user level no. and range of token numbers
+// This function is used by fullnode to read user's owned RBTs
+func (w *Wallet) ReadUsersNewTokensRange(userDID string) (NewTokensCount, error) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	var newTokensCount NewTokensCount
+	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get rbt, err : %v", err)
+		w.log.Warn(errMsg)
+		return NewTokensCount{}, fmt.Errorf(errMsg)
+	}
+	return newTokensCount, nil
+}
+
+// read the row for the given SL_number
+func (w *Wallet) ReadNewTokensBySlNum(slNum int64) (NewTokensCount, error) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	var newTokensCount NewTokensCount
+	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "sl_number=?", slNum)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get rbt, err : %v", err)
+		w.log.Warn(errMsg)
+		return NewTokensCount{}, fmt.Errorf(errMsg)
+	}
+	return newTokensCount, nil
+}
+
+// get total entry count or last entry of NewTokensTbale of Fullnode
+func (w *Wallet) GetNewTokensTableLatestId() int64 {
+	w.l.Lock()
+	defer w.l.Unlock()
+	newTokensLatestSlNum := w.fullNodePSQLTokensDB.GetDataCount(FullnodeNewTokensTable, "sl_number!=?", 0)
+	return newTokensLatestSlNum
+}
+
+// add new row to NewTokensTable
+func (w *Wallet) AssignNewTokensToUser(newRow NewTokensCount) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	return w.fullNodePSQLTokensDB.Write(FullnodeNewTokensTable, &newRow)
 }

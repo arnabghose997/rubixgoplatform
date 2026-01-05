@@ -47,6 +47,7 @@ const (
 	FullNodeNFTContentTable        string = "nft_content_table"
 	FullNodeSCContentTable         string = "sc_content_table"
 	FullnodeDoubleSpentTokensTable string = "DoubleSpentTokensTable"
+	FullnodeNewTokensTable         string = "FullnodeNewTokensTable"
 )
 
 type WalletConfig struct {
@@ -299,6 +300,11 @@ func InitWallet(s storage.Storage, fullNodeSQLDB storage.Storage, fullNodePSQLTo
 		if err != nil {
 			w.log.Error("Failed to initialize fullnode smart contract token storage", "err", err)
 			return nil, err
+		}
+
+		err = w.fullNodePSQLTokensDB.Init(FullnodeNewTokensTable, &NewTokensCount{}, true)
+		if err != nil {
+			w.log.Error("failed to initialize FullnodeNewTokensTable storage", "error", err)
 		}
 	}
 
