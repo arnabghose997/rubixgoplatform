@@ -626,34 +626,70 @@ func (c *Core) AssignNewTokensToUser(oldTokensList []wallet.SyncedRBT, userDID s
 	latestLevelNum := latestIdDetails.Level
 	latestTokenNum := latestIdDetails.RangeUpperBound
 
-	// TODO : lock DB of fullnode such that no other node can be assigned new tokens at this time
+	// TODO : lock DB of fullnode such that no other node can be assigned new tokens at this time. 
+	// Also maintain a queue for the users
 
-	// read sqlite db to get all tokens owned by the userDID with status 'free'
-	freeRbtList, err := c.w.ReadUsersRBTByStatus(userDID, wallet.TokenIsFree)
+	// assign new tokens to user with status 'free'
+	latestLevelNum, latestTokenNum, err = c.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, wallet.TokenIsFree, userDID)
 	if err != nil {
-		c.log.Error("failed to get user rbts, err", err)
 		return err
 	}
 
-	totalFreeRbt := 0.0
-
-	for _, rbt := range freeRbtList {
-		totalFreeRbt += rbt.TokenValue
+	// assign new tokens to user with status 'locked'
+	latestLevelNum, latestTokenNum, err = c.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, wallet.TokenIsLocked, userDID)
+	if err != nil {
+		return err
 	}
-	c.log.Debug("total free rbt count ", len(freeRbtList))
-	c.log.Debug("total free rbt ", totalFreeRbt)
+
+	// assign new tokens to user with status 'pledged'
+	latestLevelNum, latestTokenNum, err = c.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, wallet.TokenIsPledged, userDID)
+	if err != nil {
+		return err
+	}
+
+	// assign new tokens to user with status 'committed'
+	latestLevelNum, latestTokenNum, err = c.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, wallet.TokenIsCommitted, userDID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type NewTokenRange struct {
+	LowerBound int `json:"lower_bound"`
+	UpperBound int `json:"upper_bound"`
+}
+
+// read tokens of the user by given token status, get the total amount, then assign the user new tokens level and range as per the total amount
+func (c *Core) AssignNewTokensByStatus(latestLevel, latestTokenNumber, tokenStatus int, userDID string) (int, int, error) {
+	// read sqlite db to get all tokens owned by the userDID with given token status
+	rbtList, err := c.w.ReadUsersRBTByStatus(userDID, tokenStatus)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to get user rbts with status : %d, user :%s ; err: %v", tokenStatus, userDID, err)
+		c.log.Error(errMsg)
+		return -1, -1, fmt.Errorf("%v", errMsg)
+	}
+
+	totalRbt := 0.0
+
+	for _, rbt := range rbtList {
+		totalRbt += rbt.TokenValue
+	}
+	c.log.Debug("total rbt count ", len(rbtList))
+	c.log.Debug("total rbt ", totalRbt)
 
 	// assign required free RBTs to user
 	userNewToken := wallet.NewTokensCount{
 		DID:           userDID,
-		PendingAmount: totalFreeRbt - math.Floor(totalFreeRbt),
-		TokenStatus:   wallet.TokenIsFree,
+		PendingAmount: totalRbt - math.Floor(totalRbt),
+		TokenStatus:   tokenStatus,
 	}
 
-	userNewTokensRange, err := c.CalculateNewTokensRange(int(math.Floor(totalFreeRbt)), latestLevelNum, latestTokenNum)
+	userNewTokensRange, err := c.CalculateNewTokensRange(int(math.Floor(totalRbt)), latestLevel, latestTokenNumber)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to assign new tokens range for user : %s; err : %v", userDID, err)
-		return fmt.Errorf("%v", errMsg)
+		return -1, -1, fmt.Errorf("%v", errMsg)
 	}
 
 	for assignedLevel, assignedRange := range userNewTokensRange {
@@ -665,61 +701,13 @@ func (c *Core) AssignNewTokensToUser(oldTokensList []wallet.SyncedRBT, userDID s
 		err := c.w.AssignNewTokensToUser(userNewToken)
 		if err != nil {
 			errMsg := fmt.Sprintf("failed to add new tokens range to db for user : %s; err : %v", userDID, err)
-			return fmt.Errorf("%v", errMsg)
+			return -1, -1, fmt.Errorf("%v", errMsg)
 		}
 	}
 
-	// read sqlite db to get all tokens owned by the userDID with status 'locked'
-	lockedRbtList, err := c.w.ReadUsersRBTByStatus(userDID, wallet.TokenIsLocked)
-	if err != nil {
-		c.log.Error("failed to get user rbts, err", err)
-		return err
-	}
-
-	totalLockedRbt := 0.0
-
-	for _, rbt := range lockedRbtList {
-		totalLockedRbt += rbt.TokenValue
-	}
-	c.log.Debug("total locked rbt count ", len(lockedRbtList))
-	c.log.Debug("total locked rbt ", totalLockedRbt)
-
-	// read sqlite db to get all tokens owned by the userDID with status 'committed'
-	committedRbtList, err := c.w.ReadUsersRBTByStatus(userDID, wallet.TokenIsCommitted)
-	if err != nil {
-		c.log.Error("failed to get user rbts, err", err)
-		return err
-	}
-
-	totalCommittedRbt := 0.0
-
-	for _, rbt := range committedRbtList {
-		totalCommittedRbt += rbt.TokenValue
-	}
-	c.log.Debug("total committed rbt count ", len(committedRbtList))
-	c.log.Debug("total committed rbt ", totalCommittedRbt)
-
-	// read sqlite db to get all tokens owned by the userDID with status 'pledged'
-	pledgedRbtList, err := c.w.ReadUsersRBTByStatus(userDID, wallet.TokenIsPledged)
-	if err != nil {
-		c.log.Error("failed to get user rbts, err", err)
-		return err
-	}
-
-	totalPledgedRbt := 0.0
-
-	for _, rbt := range pledgedRbtList {
-		totalPledgedRbt += rbt.TokenValue
-	}
-	c.log.Debug("total pledged rbt count ", len(pledgedRbtList))
-	c.log.Debug("total pledged rbt ", totalPledgedRbt)
-
-	return nil
-}
-
-type NewTokenRange struct {
-	LowerBound int `json:"lower_bound"`
-	UpperBound int `json:"upper_bound"`
+	updatedLevel := userNewToken.Level
+	updatedTokenNumber := userNewToken.RangeUpperBound
+	return updatedLevel, updatedTokenNumber, nil
 }
 
 func (c *Core) CalculateNewTokensRange(requiredTokensCount, latestLevel, latestTokenNumber int) (map[int]*NewTokenRange, error) {
@@ -727,18 +715,18 @@ func (c *Core) CalculateNewTokensRange(requiredTokensCount, latestLevel, latestT
 	var assignedLevel int
 	var err error
 
-	// TODO : check if token number limit is reached for a level
-	if token.TokenMap[latestLevel] < latestTokenNumber {
+	// check if token number limit is reached for a level
+	if token.TokenMap[latestLevel] < latestTokenNumber { // if the latest token number exceeds the current level, then the assignment was invalid and we cannot move further
 		errMsg := fmt.Sprintf("latest token number : %d exceeds the tokens-limit : %d of the latest level : %d", latestTokenNumber, token.TokenMap[latestLevel], latestLevel)
 		c.log.Error(errMsg)
 		return newTokenAssignmentMap, fmt.Errorf("%v", errMsg)
-	} else if token.TokenMap[latestLevel] == latestTokenNumber {
+	} else if token.TokenMap[latestLevel] == latestTokenNumber { // if the limit of the current level is reached, start with next level
 		assignedLevel = latestLevel + 1
 		newTokenAssignmentMap[assignedLevel] = &NewTokenRange{
 			LowerBound: 1,
 			UpperBound: requiredTokensCount,
 		}
-	} else {
+	} else { // if the limit of the level is not reached, then continue with the current level
 		assignedLevel = latestLevel
 		newTokenAssignmentMap[assignedLevel] = &NewTokenRange{
 			LowerBound: latestTokenNumber + 1,
