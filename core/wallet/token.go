@@ -1959,8 +1959,8 @@ func (w *Wallet) GetTxnAmountFromFullNode(txnID string) (*model.FullNodeTxnHisto
 
 // This function is used by fullnode to read user's owned RBTs
 func (w *Wallet) ReadUsersRBTByStatus(userDID string, tokenStatus int) ([]SyncedRBT, error) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	// w.l.Lock()
+	// defer w.l.Unlock()
 	var rbtList []SyncedRBT
 	err := w.fullNodeSQLDB.Read(FullNodeRBTTable, &rbtList, "owner_did=? AND token_status=?", userDID, tokenStatus)
 	if err != nil {
@@ -1974,8 +1974,8 @@ func (w *Wallet) ReadUsersRBTByStatus(userDID string, tokenStatus int) ([]Synced
 // assign user level no. and range of token numbers
 // This function is used by fullnode to read user's owned RBTs
 func (w *Wallet) ReadUsersNewTokensRange(userDID string) (NewTokensCount, error) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	// w.l.Lock()
+	// defer w.l.Unlock()
 	var newTokensCount NewTokensCount
 	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
 	if err != nil {
@@ -1988,8 +1988,8 @@ func (w *Wallet) ReadUsersNewTokensRange(userDID string) (NewTokensCount, error)
 
 // read the row for the given SL_number
 func (w *Wallet) ReadNewTokensBySlNum(slNum int64) (NewTokensCount, error) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	// w.l.Lock()
+	// defer w.l.Unlock()
 	var newTokensCount NewTokensCount
 	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "sl_number=?", slNum)
 	if err != nil {
@@ -2002,15 +2002,15 @@ func (w *Wallet) ReadNewTokensBySlNum(slNum int64) (NewTokensCount, error) {
 
 // get total entry count or last entry of NewTokensTbale of Fullnode
 func (w *Wallet) GetNewTokensTableLatestId() int64 {
-	w.l.Lock()
-	defer w.l.Unlock()
+	// w.l.Lock()
+	// defer w.l.Unlock()
 	newTokensLatestSlNum := w.fullNodePSQLTokensDB.GetDataCount(FullnodeNewTokensTable, "sl_number!=?", 0)
 	return newTokensLatestSlNum
 }
 
 // add new row to NewTokensTable
-func (w *Wallet) AssignNewTokensToUser(newRow NewTokensCount) error {
-	w.l.Lock()
-	defer w.l.Unlock()
+func (w *Wallet) AddNewTokenAssignment(newRow NewTokensCount) error {
+	// w.l.Lock()
+	// defer w.l.Unlock()
 	return w.fullNodePSQLTokensDB.Write(FullnodeNewTokensTable, &newRow)
 }
