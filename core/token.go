@@ -278,7 +278,7 @@ func (c *Core) generateTestTokens(reqID string, num int, did string) error {
 		ctcb := make(map[string]*block.Block)
 		ctcb[id] = nil
 
-		blk := block.CreateNewBlock(ctcb, tcb)
+		blk := block.CreateNewBlock(ctcb, tcb, false)
 
 		if blk == nil {
 			c.log.Error("Failed to create new token chain block")
@@ -1074,6 +1074,8 @@ func (c *Core) processReceivedTokenDetails(event model.TokenChainDetailsEvent) {
 
 					defer peer.Close()
 
+					//read peerDID table and get the did of the publisher and check whether 
+
 					if err := c.SyncFullTokenChainForFullNode(peer, token); err != nil {
 						//if err contains, previous blockID of the blk which is getting added is not matching with the blockID which is present,
 						//we should add it into double spend tokens table
@@ -1629,6 +1631,7 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 					// return fmt.Errorf("failed to add token's ipfs content to psql db, err: %v", err)
 					c.log.Info("failed to add token's ipfs content to psql db, err:", err)
 				}
+				
 				err = c.AddTokenToRespectiveTable(tokenSyncInfo.TokenID, ownerDid, blocks, event, syncStatus)
 				if err != nil {
 					c.log.Info("Failed to add token details to respective tables", "token", tokenSyncInfo.TokenID, "err", err)
@@ -2244,7 +2247,7 @@ func (c *Core) generateTestTokensFaucet(reqID string, numTokens int, did string)
 		ctcb := make(map[string]*block.Block)
 		ctcb[id] = nil
 
-		blk := block.CreateNewBlock(ctcb, tcb)
+		blk := block.CreateNewBlock(ctcb, tcb, false)
 		//If error comes after adding in IPFS, removing the pin from that token.
 		if blk == nil {
 			c.log.Error("Failed to create new token chain block")

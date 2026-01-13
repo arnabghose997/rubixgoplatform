@@ -983,6 +983,46 @@ func (w *Wallet) GetTokenBlock(token string, tokenType int, blockID string) ([]b
 	return w.getBlock(tokenType, token, blockID)
 }
 
+func (w *Wallet) addDummyBlock(token string, b *block.Block) error {
+	opt := &opt.WriteOptions{
+		Sync: true,
+	}
+	tt := b.GetTokenType(token)
+	db := w.getChainDB(tt)
+	if db == nil {
+		w.log.Error("Failed to get tokenchain from db")
+		return fmt.Errorf("failed to get tokenchain from db")
+	}
+
+	bid, err := b.GetBlockID(token)
+	if err != nil {
+		return err
+	} else {
+		w.log.Debug("*****blockID***", bid, " blockDetails", b.GetBlock())
+
+	}
+
+	key := tcsKey(tt, token, bid)
+
+	db.l.Lock()
+
+	w.log.Debug("******just before adding dummy block into level db**")
+	err = db.Put([]byte(key), b.GetBlock(), opt)
+	if err != nil {
+		return err
+	} else {
+		w.log.Debug("***blockdetails of token:***", token, " with blockID ", bid, " added")
+	}
+	db.l.Unlock()
+	return nil
+
+}
+
+// AddDummyBlock will add a dummy block to the token chain of the given token
+func (w *Wallet) AddDummyBlock(token string, b *block.Block) error {
+	return w.addDummyBlock(token, b)
+}
+
 // GetFullNodeTokenBlock gets token chain block from the FullNode storage
 func (w *Wallet) GetFullNodeTokenBlock(token string, tokenType int, blockID string) ([]byte, error) {
 	return w.getFullNodeBlock(tokenType, token, blockID)

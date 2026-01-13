@@ -510,7 +510,7 @@ func (c *Core) migrateNode(reqID string, m *MigrateRequest, didDir string) error
 						},
 					}
 					//ctcb := make
-					blk := block.CreateNewBlock(ctcb, ntcb)
+					blk := block.CreateNewBlock(ctcb, ntcb, false)
 					if blk == nil {
 						c.log.Error("Failed to migrate, failed to create new token chain block")
 						return fmt.Errorf("failed to migrate, failed to create new token chain block")

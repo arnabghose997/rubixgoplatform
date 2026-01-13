@@ -1898,7 +1898,7 @@ func (c *Core) updatePledgeToken(req *ensweb.Request) *ensweb.Result {
 			Epoch: ur.TransactionEpoch,
 		}
 
-		nb := block.CreateNewBlock(ctcb, &tcb)
+		nb := block.CreateNewBlock(ctcb, &tcb, false)
 		if nb == nil {
 			c.log.Error("Failed to create new token chain block - qrm rec")
 			crep.Message = "Failed to create new token chain block -qrm rec"

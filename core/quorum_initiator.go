@@ -1435,7 +1435,7 @@ func (c *Core) initiateConsensus(cr *ConensusRequest, sc *contract.Contract, dc 
 			TokenChainBlock:    nb.GetBlock(),
 			QuorumList:         cr.QuorumList,
 			PinningServiceMode: true,
-			OperationType: cr.OperationType,
+			OperationType:      cr.OperationType,
 		}
 		// fetching quorums' info from PeerDIDTable to share with the receiver
 		for _, qrm := range sr.QuorumList {
@@ -2869,7 +2869,7 @@ func (c *Core) pledgeQuorumToken(cr *ConensusRequest, sc *contract.Contract, tid
 		tcb.TransactionType = block.TokenSelfTransferredType
 	}
 
-	nb := block.CreateNewBlock(ctcb, &tcb)
+	nb := block.CreateNewBlock(ctcb, &tcb, false)
 	if nb == nil {
 		c.log.Error("Failed to create new token chain block - qrm init")
 		return nil, fmt.Errorf("failed to create new token chain block - qrm init")
@@ -3135,7 +3135,7 @@ func (c *Core) createCommitedTokensBlock(newBlock *block.Block, smartContractTok
 			Tokens:  tsb,
 		},
 	}
-	nb := block.CreateNewBlock(ctcb, &tcb)
+	nb := block.CreateNewBlock(ctcb, &tcb, false)
 	if nb == nil {
 		c.log.Error("Failed to create new token chain block")
 		return fmt.Errorf("Failed to create new token chain block")

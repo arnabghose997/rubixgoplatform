@@ -257,7 +257,7 @@ func (c *Core) createPartToken(dc did.DIDCrypto, did string, tkn string, parts [
 		}
 		ctcb := make(map[string]*block.Block)
 		ctcb[pt] = nil
-		b := block.CreateNewBlock(ctcb, tcb)
+		b := block.CreateNewBlock(ctcb, tcb, false)
 		if b == nil {
 			return nil, fmt.Errorf("failed to create new block")
 		}
@@ -318,7 +318,7 @@ func (c *Core) createPartToken(dc did.DIDCrypto, did string, tkn string, parts [
 	}
 	ctcb := make(map[string]*block.Block)
 	ctcb[tkn] = c.w.GetLatestTokenBlock(tkn, ptt)
-	b = block.CreateNewBlock(ctcb, tcb)
+	b = block.CreateNewBlock(ctcb, tcb, false)
 	if b == nil {
 		return nil, fmt.Errorf("failed to create new block")
 	}

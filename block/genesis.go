@@ -74,7 +74,7 @@ func newGenesisInfo(gi *GenesisTokenInfo) map[string]interface{} {
 	//To add commited tokeninfo
 	newCommitedTokensBlock := make(map[string]interface{})
 	for _, tokensInfo := range gi.CommitedTokens {
-		commitedTokenInfoMap := newTransToken(nil, &tokensInfo)
+		commitedTokenInfoMap := newTransToken(nil, &tokensInfo, false)
 		if commitedTokenInfoMap == nil {
 			return nil
 		}

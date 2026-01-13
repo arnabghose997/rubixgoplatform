@@ -13,6 +13,12 @@ type TCDumpReply struct {
 	Blocks      [][]byte `json:"blocks"`
 }
 
+type DummyBlockAddReq struct {
+	Token               string `json:"token_id"`
+	Did                 string `json:"did"`
+	NumberOfBlocksToAdd int    `json:"number_of_blocks_to_add"`
+}
+
 type GetTokenChainResponce struct {
 	BasicResponse
 	TokenChainData []interface{}

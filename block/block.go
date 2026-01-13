@@ -163,7 +163,7 @@ func InitBlock(bb []byte, bm map[string]interface{}, opts ...BlockOption) *Block
 	return b
 }
 
-func CreateNewBlock(ctcb map[string]*Block, tcb *TokenChainBlock) *Block {
+func CreateNewBlock(ctcb map[string]*Block, tcb *TokenChainBlock, addDummyBlock bool) *Block {
 	if tcb.TransInfo == nil || ctcb == nil {
 		return nil
 	}
@@ -176,7 +176,7 @@ func CreateNewBlock(ctcb map[string]*Block, tcb *TokenChainBlock) *Block {
 			return nil
 		}
 	}
-	ntib := newTransInfo(ctcb, tcb.TransInfo)
+	ntib := newTransInfo(ctcb, tcb.TransInfo, addDummyBlock)
 	if ntib == nil {
 		return nil
 	}
@@ -215,7 +215,7 @@ func CreateNewBlock(ctcb map[string]*Block, tcb *TokenChainBlock) *Block {
 		ntcb[TCEpochKey] = tcb.Epoch
 	}
 
-	blk := InitBlock(nil, ntcb)
+	blk := InitBlock(nil, ntcb, NoSignature())
 	return blk
 }
 

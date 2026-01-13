@@ -6,10 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"crypto/rand"
+
 	"github.com/rubixchain/rubixgoplatform/block"
 	"github.com/rubixchain/rubixgoplatform/core/model"
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
 	"github.com/rubixchain/rubixgoplatform/token"
+	"github.com/rubixchain/rubixgoplatform/util"
 )
 
 func (c *Core) DumpTokenChain(dr *model.TCDumpRequest) *model.TCDumpReply {
@@ -46,6 +49,95 @@ func (c *Core) DumpTokenChain(dr *model.TCDumpRequest) *model.TCDumpReply {
 	ds.Blocks = blks
 	ds.NextBlockID = nextID
 	return ds
+}
+
+func (c *Core) GenerateRandomByteArray() ([]byte, error) {
+	var result []byte
+	_, err := rand.Read(result[:])
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+func (c *Core) DummyTransactionID() (string, error) {
+	randomBytes, err := c.GenerateRandomByteArray()
+	if err != nil {
+		c.log.Error("failed to generate random bytes")
+		return "", err
+	}
+	tid := util.HexToStr(util.CalculateHash(randomBytes, "SHA3-256"))
+	return tid, nil
+
+}
+
+func (c *Core) AdddummyBlock(dummyBlockReq *model.DummyBlockAddReq) (model.BasicResponse, error) {
+
+	c.log.Debug("********AdddummyBlock function called ***********")
+
+	response := &model.BasicResponse{
+		Status: false,
+	}
+
+	for i := 0; i < dummyBlockReq.NumberOfBlocksToAdd; i++ {
+		st := time.Now()
+		txEpoch := int(st.Unix())
+
+		dummyTrxnID, err := c.DummyTransactionID()
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to create dummy tid , error: %v", err)
+			c.log.Error(errMsg)
+			response.Message = errMsg
+			return *response, err
+		}
+
+		token := block.TransTokens{
+			Token:     dummyBlockReq.Token,
+			TokenType: c.TokenType("rbt"),
+		}
+		tokens := []block.TransTokens{token}
+
+		bti := &block.TransInfo{
+			TID:       dummyTrxnID,
+			Tokens:    tokens,
+			SenderDID: dummyBlockReq.Did,
+		}
+
+		ctcb := make(map[string]*block.Block)
+		b := c.w.GetLatestTokenBlock(dummyBlockReq.Token, token.TokenType)
+		ctcb[dummyBlockReq.Token] = b
+
+		tcb := block.TokenChainBlock{
+			TransactionType: block.TokenGeneratedType,
+			TokenOwner:      dummyBlockReq.Did,
+			TransInfo:       bti,
+			Epoch:           txEpoch,
+		}
+		nb := block.CreateNewBlock(ctcb, &tcb, true)
+		if nb == nil {
+			c.log.Error("Failed to create new token chain block - qrm init")
+			response.Message = "failed to create new token chain block - qrm init"
+			return *response, nil
+		}
+
+		c.log.Debug("***adding dummy signature****")
+		err = nb.ReplaceSignature(dummyBlockReq.Did, "dummy_signature")
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to replace signature of token: %v", dummyBlockReq.Token)
+			response.Message = errMsg
+			return *response, err
+		}
+		err = c.w.AddDummyBlock(dummyBlockReq.Token, nb)
+		if err != nil {
+			errMsg := fmt.Sprintf("failed to add a dummy block for the token: %v", dummyBlockReq.Token)
+			response.Message = errMsg
+			return *response, err
+		}
+
+	}
+
+	response.Status = true
+	response.Message = "successfully added dummy block to the tokenchain"
+	return *response, nil
 }
 
 func (c *Core) DumpFullnodeTokenChain(dr *model.TCDumpRequest) *model.TCDumpReply {

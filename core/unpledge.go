@@ -197,7 +197,7 @@ func unpledgeToken(c *Core, pledgeToken string, pledgeTokenType int, quorumDID s
 		Epoch: int(currentTime.Unix()),
 	}
 
-	nb := block.CreateNewBlock(ctcb, &tcb)
+	nb := block.CreateNewBlock(ctcb, &tcb, false)
 	if nb == nil {
 		c.log.Error("Failed to create new token chain block")
 		return "", "", fmt.Errorf("failed to create new token chain block")

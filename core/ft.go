@@ -200,7 +200,7 @@ func (c *Core) createFTs(reqID string, FTName string, numFTs int, numWholeTokens
 			}
 			ctcb := make(map[string]*block.Block)
 			ctcb[ftID] = nil
-			blockObj := block.CreateNewBlock(ctcb, tcb)
+			blockObj := block.CreateNewBlock(ctcb, tcb, false)
 			if blockObj == nil {
 				results <- ftResult{Err: fmt.Errorf("failed to create new block")}
 				continue
@@ -315,7 +315,7 @@ func (c *Core) createFTs(reqID string, FTName string, numFTs int, numWholeTokens
 		}
 		ctcb := make(map[string]*block.Block)
 		ctcb[wholeTokens[i].TokenID] = c.w.GetLatestTokenBlock(wholeTokens[i].TokenID, ptt)
-		block := block.CreateNewBlock(ctcb, tcb)
+		block := block.CreateNewBlock(ctcb, tcb, false)
 		if block == nil {
 			return fmt.Errorf("failed to create new block")
 		}

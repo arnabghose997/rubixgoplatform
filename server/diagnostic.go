@@ -25,6 +25,21 @@ func (s *Server) APIDumpTokenChainBlock(req *ensweb.Request) *ensweb.Result {
 	return s.RenderJSON(req, drep, http.StatusOK)
 }
 
+func (s *Server) APIAddDummyBlock(req *ensweb.Request) *ensweb.Result {
+	var addDummyBlockReq model.DummyBlockAddReq
+	var resp model.BasicResponse
+	err := s.ParseJSON(req, &addDummyBlockReq)
+	if err != nil {
+		return s.BasicResponse(req, false, "Invalid input", nil)
+	}
+	resp, err = s.c.AdddummyBlock(&addDummyBlockReq)
+	if err != nil {
+		return s.BasicResponse(req, true, "failed to add dummy block", err)
+	}
+	return s.BasicResponse(req, true, resp.Message, http.StatusOK)
+
+}
+
 func (s *Server) APIDumpFTTokenChainBlock(req *ensweb.Request) *ensweb.Result {
 	var dr model.TCDumpRequest
 	err := s.ParseJSON(req, &dr)

@@ -108,6 +108,7 @@ const (
 	APIGetFailedFTDownloadStatus        string = "/api/get-failed-ft-download-status"
 	APIRecoverLostTokens                string = "/api/recover-lost-tokens"
 	APIRemoteRecoverTokens              string = "/api/remote-recover-tokens"
+	APIAddDummyBlock                    string = "/api/add-dummy-block"
 
 	//Below are Explorer-service API endpoints
 	APIGetAllRBTs           string = "/api/de-exp/get-rbt-list"

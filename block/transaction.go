@@ -82,7 +82,7 @@ type TransInfo struct {
 	PinningNodeDID string        `json:"pinningNodeDID"`
 }
 
-func newTransToken(b *Block, tt *TransTokens) map[string]interface{} {
+func newTransToken(b *Block, tt *TransTokens, addDummyBlock bool) map[string]interface{} {
 	if tt.Token == "" {
 		return nil
 	}
@@ -104,17 +104,24 @@ func newTransToken(b *Block, tt *TransTokens) map[string]interface{} {
 			return nil
 		}
 		bn++
-		bid, err := b.GetBlockID(tt.Token)
-		if err != nil {
-			return nil
+		var bid string
+		if addDummyBlock {
+			bid = "dummyPreviousBlockID"
+		} else {
+			bid, err = b.GetBlockID(tt.Token)
+			if err != nil {
+				return nil
+			}
+
 		}
+
 		nttb[TTBlockNumberKey] = strconv.FormatUint(bn, 10)
 		nttb[TTPreviousBlockIDKey] = bid
 	}
 	return nttb
 }
 
-func newTransInfo(ctcb map[string]*Block, ti *TransInfo) map[string]interface{} {
+func newTransInfo(ctcb map[string]*Block, ti *TransInfo, addDummyBlock bool) map[string]interface{} {
 	ntib := make(map[string]interface{})
 	if ti.Tokens == nil || len(ti.Tokens) == 0 {
 		return nil
@@ -149,7 +156,7 @@ func newTransInfo(ctcb map[string]*Block, ti *TransInfo) map[string]interface{} 
 	nttbs := make(map[string]interface{})
 	for _, tt := range ti.Tokens {
 		b := ctcb[tt.Token]
-		nttb := newTransToken(b, &tt)
+		nttb := newTransToken(b, &tt, addDummyBlock)
 		if nttb == nil {
 			return nil
 		}
