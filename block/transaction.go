@@ -105,14 +105,18 @@ func newTransToken(b *Block, tt *TransTokens, addDummyBlock bool) map[string]int
 		}
 		bn++
 		var bid string
-		if addDummyBlock {
-			bid = "dummyPreviousBlockID"
-		} else {
-			bid, err = b.GetBlockID(tt.Token)
-			if err != nil {
-				return nil
-			}
+		// if addDummyBlock {
+		// 	bid = "dummyPreviousBlockID"
+		// } else {
+		// 	bid, err = b.GetBlockID(tt.Token)
+		// 	if err != nil {
+		// 		return nil
+		// 	}
 
+		// }
+		bid, err = b.GetBlockID(tt.Token)
+		if err != nil {
+			return nil
 		}
 
 		nttb[TTBlockNumberKey] = strconv.FormatUint(bn, 10)
