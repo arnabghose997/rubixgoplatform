@@ -8,12 +8,20 @@ import (
 )
 
 type NewTokenRange struct {
+	Level      int `json:"level"`
 	LowerBound int `json:"lower_bound"`
 	UpperBound int `json:"upper_bound"`
 }
 
+const (
+	FreeToken      string = "free"
+	LockedToken    string = "locked"
+	PledgedToken   string = "pledged"
+	CommittedToken string = "committed"
+)
+
 // assign user level no. and range of token numbers
-func (w *Wallet) AssignNewTokensToUser(userDID string) error {
+func (w *Wallet) AssignNewTokensToUser(userDID string) (map[string][]NewTokenRange, error) {
 	// lock fullnode wallet till the new tokens assignment for current user completes
 	w.l.Lock()
 	defer w.l.Unlock()
@@ -25,34 +33,37 @@ func (w *Wallet) AssignNewTokensToUser(userDID string) error {
 	latestLevelNum := latestIdDetails.Level
 	latestTokenNum := latestIdDetails.RangeUpperBound
 
-	// TODO : lock DB of fullnode such that no other node can be assigned new tokens at this time.
-	// Also maintain a queue for the users
-
 	// assign new tokens to user with status 'free'
 	latestLevelNum, latestTokenNum, err = w.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, TokenIsFree, userDID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// assign new tokens to user with status 'locked'
 	latestLevelNum, latestTokenNum, err = w.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, TokenIsLocked, userDID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// assign new tokens to user with status 'pledged'
 	latestLevelNum, latestTokenNum, err = w.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, TokenIsPledged, userDID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// assign new tokens to user with status 'committed'
 	latestLevelNum, latestTokenNum, err = w.AssignNewTokensByStatus(latestLevelNum, latestTokenNum, TokenIsCommitted, userDID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// gather user's new tokens details
+	newTokensMap, err := w.GatherUserNewTokens(userDID)
+	if err != nil {
+		return nil, err
+	}
+
+	return newTokensMap, nil
 }
 
 // read tokens of the user by given token status, get the total amount, then assign the user new tokens level and range as per the total amount
@@ -138,4 +149,37 @@ func (w *Wallet) CalculateNewTokensRange(requiredTokensCount, latestLevel, lates
 		}
 	}
 	return newTokenAssignmentMap, nil
+}
+
+func (w *Wallet) GatherUserNewTokens(userDID string) (map[string][]NewTokenRange, error) {
+	newTokensMap := make(map[string][]NewTokenRange, 0)
+	userNewTokens, err := w.ReadUsersNewTokensRange(userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to read user's new tokens from table, err : %v", err)
+		w.log.Error(errMsg)
+		return nil, fmt.Errorf("%v", errMsg)
+	}
+
+	for _, newTokenRange := range userNewTokens {
+		newTokenRange_ := NewTokenRange{
+			Level:      newTokenRange.Level,
+			LowerBound: newTokenRange.RangeLowerBound,
+			UpperBound: newTokenRange.RangeUpperBound,
+		}
+		switch newTokenRange.TokenStatus {
+		case TokenIsFree:
+			newTokensMap[FreeToken] = append(newTokensMap[FreeToken], newTokenRange_)
+		case TokenIsLocked:
+			newTokensMap[LockedToken] = append(newTokensMap[LockedToken], newTokenRange_)
+		case TokenIsPledged:
+			newTokensMap[PledgedToken] = append(newTokensMap[PledgedToken], newTokenRange_)
+		case TokenIsCommitted:
+			newTokensMap[CommittedToken] = append(newTokensMap[CommittedToken], newTokenRange_)
+		default:
+			errMsg := fmt.Sprintf("invalid token status : %v, invalid assignment to user : %v", newTokenRange.TokenStatus, userDID)
+			w.log.Error(errMsg)
+			return nil, fmt.Errorf("%v", errMsg)
+		}
+	}
+	return newTokensMap, nil
 }

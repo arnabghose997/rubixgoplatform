@@ -1973,15 +1973,13 @@ func (w *Wallet) ReadUsersRBTByStatus(userDID string, tokenStatus int) ([]Synced
 
 // assign user level no. and range of token numbers
 // This function is used by fullnode to read user's owned RBTs
-func (w *Wallet) ReadUsersNewTokensRange(userDID string) (NewTokensCount, error) {
+func (w *Wallet) ReadUsersNewTokensRange(userDID string) ([]NewTokensCount, error) {
 	// w.l.Lock()
 	// defer w.l.Unlock()
-	var newTokensCount NewTokensCount
+	var newTokensCount []NewTokensCount
 	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get rbt, err : %v", err)
-		w.log.Warn(errMsg)
-		return NewTokensCount{}, fmt.Errorf(errMsg)
+		return nil, err
 	}
 	return newTokensCount, nil
 }
@@ -2013,4 +2011,16 @@ func (w *Wallet) AddNewTokenAssignment(newRow NewTokensCount) error {
 	// w.l.Lock()
 	// defer w.l.Unlock()
 	return w.fullNodePSQLTokensDB.Write(FullnodeNewTokensTable, &newRow)
+}
+
+// This function is used by fullnode to remove assigned new tokens range to user
+func (w *Wallet) RemoveUsersNewTokenAssignment(userDID string) error {
+	// w.l.Lock()
+	// defer w.l.Unlock()
+	var newTokensCount []NewTokensCount
+	err := w.fullNodePSQLTokensDB.Delete(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
+	if err != nil {
+		return err
+	}
+	return nil
 }

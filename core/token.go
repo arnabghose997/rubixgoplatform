@@ -100,6 +100,8 @@ func (c *Core) SetupToken() {
 	c.l.AddRoute(APIUpdateStatus, "PUT", c.updateStatus)
 	c.l.AddRoute(APIGetTokenStatus, "GET", c.getTokenStatus)
 	c.l.AddRoute(setup.APIRecoverLostTokens, "POST", c.recoverLostTokensHandler)
+	c.l.AddRoute(APIRequestNewTokens, "POST", c.newTokensRequest)
+	c.l.AddRoute(APIProvideNewTokens, "POST", c.processNewTokens)
 }
 
 func (c *Core) GetAllTokens(did string, tt string) (*model.TokenResponse, error) {
@@ -2808,4 +2810,35 @@ func (c *Core) StoreDoubleSpentTokenInfo(doubleSpentTokenInfo *model.DoubleSpent
 		err = fmt.Errorf("invalid asset type, failed to remove double spent token from table, token : %v", doubleSpentTokenInfo.TokenID)
 	}
 	return err
+}
+
+// new token request handler for fullnode to enqueue user DID list
+func (c *Core) newTokensRequest(req *ensweb.Request) *ensweb.Result {
+	var userDIDList []string
+	err := c.l.ParseJSON(req, &userDIDList)
+	if err != nil {
+		c.log.Error("failed to parse new tokens request", "err", err)
+		return c.l.RenderJSON(req, &model.BasicResponse{Status: false, Message: "failed to parse user DID, err :" + err.Error()}, http.StatusOK)
+	}
+
+	for _, userDID := range userDIDList {
+		c.tokenAssignmentManager.Enqueue(userDID)
+	}
+	return c.l.RenderJSON(req, &model.BasicResponse{Status: true, Message: "enqueued all DIDs"}, http.StatusOK)
+}
+
+// new tokens handler for local node to receive new tokens and process them
+func (c *Core) processNewTokens(req *ensweb.Request) *ensweb.Result {
+	resp := &model.BasicResponse{
+		Status: false,
+	}
+	// TODO :
+	// 1. parse new tokens
+	// 2. create new tokens and add & pin them to ipfs
+	// 3. update db
+	// 4. return satus to fullnode
+
+	resp.Status = true
+	resp.Message = "processed new tokens for DID : "
+	return c.l.RenderJSON(req, resp, http.StatusOK)
 }

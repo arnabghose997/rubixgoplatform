@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -313,4 +314,89 @@ func (c *Core) GetDynamicWorkerPoolStats() map[string]interface{} {
 	}
 
 	return stats
+}
+
+type TokenAssignmentManager struct {
+	// wallet  *wallet.Wallet
+	queue   chan string
+	inQueue map[string]bool
+	queueMu sync.Mutex
+}
+
+func (c *Core) NewTokenAssignmentManager() *TokenAssignmentManager {
+	m := &TokenAssignmentManager{
+		// wallet:  c.w,
+		queue:   make(chan string, 1000),
+		inQueue: make(map[string]bool),
+	}
+	c.tokenAssignmentManager = m
+	c.startTokenAssignmentWorker()
+	return m
+}
+
+func (m *TokenAssignmentManager) Enqueue(userDID string) bool {
+	m.queueMu.Lock()
+	defer m.queueMu.Unlock()
+
+	if m.inQueue[userDID] {
+		return false
+	}
+
+	m.inQueue[userDID] = true
+	m.queue <- userDID
+	return true
+}
+
+// lock the queue, remove user from queue and then unlock it
+func (m *TokenAssignmentManager) removeUserFromQueue(userDID string) {
+	fmt.Println("******** removing user from queue ", userDID, "************")
+	m.queueMu.Lock()
+	delete(m.inQueue, userDID)
+	m.queueMu.Unlock()
+}
+
+func (c *Core) startTokenAssignmentWorker() {
+	go func() {
+		for userDID := range c.tokenAssignmentManager.queue {
+			// check user balance and assign new tokens to user
+			newTokensMap, err := c.w.AssignNewTokensToUser(userDID)
+			if err != nil {
+				errMsg := fmt.Sprintf("assignment failed for %s: %v", userDID, err)
+				c.log.Error(errMsg)
+				// remove assigned tokens, if any
+				c.w.RemoveUsersNewTokenAssignment(userDID)
+				// remove user from queue and
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+
+			p, err := c.getPeer(userDID)
+			if err != nil {
+				c.log.Error("Failed to get peer", userDID, "err", err)
+				// remove assigned tokens, if any
+				c.w.RemoveUsersNewTokenAssignment(userDID)
+				// remove user from queue
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+			defer p.Close()
+			var resp *model.BasicResponse
+
+			// send new tokens to user and get response
+			err = p.SendJSONRequest("POST", APIProvideNewTokens, nil, &newTokensMap, &resp, false)
+			if err != nil {
+				c.log.Error("Failed to provide new tokens to user", userDID, "err", err)
+				// remove assigned tokens, if any
+				c.w.RemoveUsersNewTokenAssignment(userDID)
+				// remove user from queue
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+
+			// TODO : add user to failed-users table, in case the user does not receive new tokens
+			
+			// remove user from queue
+			c.tokenAssignmentManager.removeUserFromQueue(userDID)
+		}
+	}()
 }

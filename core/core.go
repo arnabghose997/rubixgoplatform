@@ -66,6 +66,8 @@ const (
 	APISyncGenesisAndLatestBlock    string = "/api/sync-gennesis-n-lastest-block"
 	APIUpdateStatus                 string = "/api/update-status"
 	APIGetTokenStatus               string = "/api/get-token-status"
+	APIRequestNewTokens             string = "/api/request-new-tokens"
+	APIProvideNewTokens             string = "/api/provide-new-tokens"
 )
 
 const (
@@ -97,70 +99,71 @@ const (
 var dbWriteSem = make(chan struct{}, 1)
 
 type Core struct {
-	cfg                  *config.Config
-	cfgFile              string
-	encKey               string
-	log                  logger.Logger
-	peerID               string
-	lock                 sync.RWMutex
-	ipfsLock             sync.RWMutex
-	qlock                sync.RWMutex
-	rlock                sync.Mutex
-	ipfs                 *ipfsnode.Shell
-	ipfsState            bool
-	ipfsChan             chan bool
-	ipfsCmd              *exec.Cmd
-	ipfsPID              int
-	ipfsHealth           *IPFSHealthManager
-	ipfsRecovery         *IPFSRecoveryManager
-	ipfsOps              *IPFSOperations
-	ipfsScalability      *IPFSScalabilityManager
-	connRecovery         *ConnectionRecovery
-	p2pReconnect         *P2PReconnectManager
-	shutdownMgr          *ShutdownManager
-	d                    *did.DID
-	didDir               string
-	pm                   *ipfsport.PeerManager
-	qm                   *QuorumManager
-	l                    *ipfsport.Listener
-	ps                   *pubsub.PubSub
-	started              bool
-	ipfsApp              string
-	testNet              bool
-	testNetKey           string
-	version              string
-	quorumRequest        map[string]*ConsensusStatus
-	pd                   map[string]*PledgeDetails
-	webReq               map[string]*did.DIDChan
-	w                    *wallet.Wallet
-	qc                   map[string]did.DIDCrypto
-	pqc                  map[string]did.DIDCrypto
-	sd                   map[string]*ServiceDetials
-	s                    storage.Storage
-	fullNodeStorage      storage.Storage
-	fullNodeTokensDB     storage.Storage
-	as                   storage.Storage
-	srv                  *service.Service
-	arbitaryMode         bool
-	arbitaryAddr         []string
-	ec                   *ExplorerClient
-	secret               []byte
-	quorumCount          int
-	noBalanceQuorumCount int
-	defaultSetup         bool
-	tokenSyncManager     *TokenSyncManager
-	asyncPinManager      *AsyncPinManager
-	perfTracker          *PerformanceTracker
-	txStateMgr           *TransactionStateManager
-	rollbackMgr          *RollbackManager
-	tokenPool            *TokenInfoPool
-	batchSyncTokenPool   *BatchSyncTokenInfoPool
-	tokenSlicePool       *TokenSlicePool
-	pendingTokenMonitor  *PendingTokenMonitor
-	publishTokenChain    bool
-	fullNode             bool
-	txnProcessor         *DynamicTxnProcessor
-	RetryTokenSyncTicker *time.Ticker
+	cfg                    *config.Config
+	cfgFile                string
+	encKey                 string
+	log                    logger.Logger
+	peerID                 string
+	lock                   sync.RWMutex
+	ipfsLock               sync.RWMutex
+	qlock                  sync.RWMutex
+	rlock                  sync.Mutex
+	ipfs                   *ipfsnode.Shell
+	ipfsState              bool
+	ipfsChan               chan bool
+	ipfsCmd                *exec.Cmd
+	ipfsPID                int
+	ipfsHealth             *IPFSHealthManager
+	ipfsRecovery           *IPFSRecoveryManager
+	ipfsOps                *IPFSOperations
+	ipfsScalability        *IPFSScalabilityManager
+	connRecovery           *ConnectionRecovery
+	p2pReconnect           *P2PReconnectManager
+	shutdownMgr            *ShutdownManager
+	d                      *did.DID
+	didDir                 string
+	pm                     *ipfsport.PeerManager
+	qm                     *QuorumManager
+	l                      *ipfsport.Listener
+	ps                     *pubsub.PubSub
+	started                bool
+	ipfsApp                string
+	testNet                bool
+	testNetKey             string
+	version                string
+	quorumRequest          map[string]*ConsensusStatus
+	pd                     map[string]*PledgeDetails
+	webReq                 map[string]*did.DIDChan
+	w                      *wallet.Wallet
+	qc                     map[string]did.DIDCrypto
+	pqc                    map[string]did.DIDCrypto
+	sd                     map[string]*ServiceDetials
+	s                      storage.Storage
+	fullNodeStorage        storage.Storage
+	fullNodeTokensDB       storage.Storage
+	as                     storage.Storage
+	srv                    *service.Service
+	arbitaryMode           bool
+	arbitaryAddr           []string
+	ec                     *ExplorerClient
+	secret                 []byte
+	quorumCount            int
+	noBalanceQuorumCount   int
+	defaultSetup           bool
+	tokenSyncManager       *TokenSyncManager
+	asyncPinManager        *AsyncPinManager
+	perfTracker            *PerformanceTracker
+	txStateMgr             *TransactionStateManager
+	rollbackMgr            *RollbackManager
+	tokenPool              *TokenInfoPool
+	batchSyncTokenPool     *BatchSyncTokenInfoPool
+	tokenSlicePool         *TokenSlicePool
+	pendingTokenMonitor    *PendingTokenMonitor
+	publishTokenChain      bool
+	fullNode               bool
+	txnProcessor           *DynamicTxnProcessor
+	RetryTokenSyncTicker   *time.Ticker
+	tokenAssignmentManager *TokenAssignmentManager
 }
 
 func InitConfig(configFile string, encKey string, node uint16, addr string) error {
@@ -516,6 +519,9 @@ func (c *Core) SetupCore() error {
 
 	// Start token sync cleanup routine
 	go c.tokenSyncCleanupRoutine()
+
+	// initiate new token assignment manager
+	c.NewTokenAssignmentManager()
 
 	return nil
 }
