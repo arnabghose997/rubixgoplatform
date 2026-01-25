@@ -825,7 +825,7 @@ func (c *Core) initiateFTTransfer(reqID string, req *model.TransferFTReq) *model
 			}
 			fmt.Println("Trxn Info:", eTrans)
 			// c.ec.ExplorerFTTransaction(eTrans)
-			c.log.Info("Explorer submission completed", "transaction_id", td.TransactionID)
+			// c.log.Info("Explorer submission completed", "transaction_id", td.TransactionID)
 		}()
 
 		// Pass the explorerDone channel to consensus request
