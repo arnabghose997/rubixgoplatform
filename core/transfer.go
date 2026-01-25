@@ -55,7 +55,7 @@ func gatherTokensForTransaction(c *Core, req *model.RBTTransferRequest, dc did.D
 			return nil, fmt.Errorf("insufficient tokens or tokens are locked or %v", err.Error())
 		} else {
 			if req.TokenCount > accountBalance.RBTAmount {
-				return nil, fmt.Errorf("insufficient balance, of account %v balance is %v, trnx value is %v",senderDID, accountBalance.RBTAmount, req.TokenCount)
+				return nil, fmt.Errorf("insufficient balance, of account %v balance is %v, trnx value is %v", senderDID, accountBalance.RBTAmount, req.TokenCount)
 			}
 		}
 
@@ -472,7 +472,9 @@ func (c *Core) initiateRBTTransfer(reqID string, req *model.RBTTransferRequest) 
 			resp.Result = txID
 		}
 	}
-	c.ec.ExplorerRBTTransaction(etrans)
+
+	fmt.Println("Trxn Info:", etrans)
+	// c.ec.ExplorerRBTTransaction(etrans)
 
 	// Send final transaction completion response if not already timed out
 	// select {

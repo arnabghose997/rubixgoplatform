@@ -369,7 +369,7 @@ type Command struct {
 	enableDeExp                  bool
 	deExpURL                     string
 	operationType                int
-	faucetURL                     string
+	faucetURL                    string
 }
 
 func showVersion() {
@@ -610,12 +610,14 @@ func (cmd *Command) runApp() {
 	c.StartPendingTokenMonitor()
 
 	cmd.log.Info("Syncing Details...")
-	dids := c.ExplorerUserCreate() //Checking if all the DIDs are in the ExplorerUserDetailtable or not.
-	if len(dids) != 0 {
-		c.UnlockFTs()
-		c.UpdateUserInfo(dids)     //Updating the balance
-		c.GenerateUserAPIKey(dids) //Regenerating the API Key for DID
-	}
+	// dids := c.ExplorerUserCreate() //Checking if all the DIDs are in the ExplorerUserDetailtable or not.
+	c.UnlockFTs()
+
+	// if len(dids) != 0 {
+	// 	c.UnlockFTs()
+	// 	c.UpdateUserInfo(dids)     //Updating the balance
+	// 	c.GenerateUserAPIKey(dids) //Regenerating the API Key for DID
+	// }
 	// c.UpdateTokenInfo()
 	cmd.log.Info("Syncing Complete...")
 

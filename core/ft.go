@@ -752,7 +752,7 @@ func (c *Core) initiateFTTransfer(reqID string, req *model.TransferFTReq) *model
 					}
 				}
 			}
-			c.UpdateUserInfo([]string{did})
+			// c.UpdateUserInfo([]string{did})
 			resp.Status = false
 			resultChan <- resp
 			return
@@ -823,7 +823,8 @@ func (c *Core) initiateFTTransfer(reqID string, req *model.TransferFTReq) *model
 				Amount:          TokenInfo[0].TokenValue * float64(req.FTCount),
 				FTTokenList:     FTTokenIDs,
 			}
-			c.ec.ExplorerFTTransaction(eTrans)
+			fmt.Println("Trxn Info:", eTrans)
+			// c.ec.ExplorerFTTransaction(eTrans)
 			c.log.Info("Explorer submission completed", "transaction_id", td.TransactionID)
 		}()
 
@@ -846,7 +847,7 @@ func (c *Core) initiateFTTransfer(reqID string, req *model.TransferFTReq) *model
 			resp.Message = "Failed to update FT table after transfer"
 			return
 		}
-		c.UpdateUserInfo([]string{did})
+		// c.UpdateUserInfo([]string{did})
 		// Send final transaction completion response if not already timed out
 		select {
 		case resultChan <- resp:
