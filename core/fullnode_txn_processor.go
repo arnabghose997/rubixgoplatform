@@ -3,11 +3,13 @@ package core
 import (
 	"context"
 	"fmt"
+	"math"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/rubixchain/rubixgoplatform/core/ipfsport"
 	"github.com/rubixchain/rubixgoplatform/core/model"
 )
 
@@ -358,18 +360,6 @@ func (m *TokenAssignmentManager) removeUserFromQueue(userDID string) {
 func (c *Core) startTokenAssignmentWorker() {
 	go func() {
 		for userDID := range c.tokenAssignmentManager.queue {
-			// check user balance and assign new tokens to user
-			newTokensMap, err := c.w.AssignNewTokensToUser(userDID)
-			if err != nil {
-				errMsg := fmt.Sprintf("assignment failed for %s: %v", userDID, err)
-				c.log.Error(errMsg)
-				// remove assigned tokens, if any
-				c.w.RemoveUsersNewTokenAssignment(userDID)
-				// remove user from queue and
-				c.tokenAssignmentManager.removeUserFromQueue(userDID)
-				continue
-			}
-
 			p, err := c.getPeer(userDID)
 			if err != nil {
 				c.log.Error("Failed to get peer", userDID, "err", err)
@@ -380,10 +370,28 @@ func (c *Core) startTokenAssignmentWorker() {
 				continue
 			}
 			defer p.Close()
-			var resp *model.BasicResponse
 
+			userTotalRbt, err := c.UserBalanceVerification(userDID, p)
+			if err != nil {
+				// remove user from queue
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+			// check user balance and assign new tokens to user
+			newTokensRange, err := c.w.AssignNewTokensToUser(userDID, userTotalRbt)
+			if err != nil {
+				errMsg := fmt.Sprintf("assignment failed for %s: %v", userDID, err)
+				c.log.Error(errMsg)
+				// remove assigned tokens, if any
+				c.w.RemoveUsersNewTokenAssignment(userDID)
+				// remove user from queue and
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+
+			var resp *model.BasicResponse
 			// send new tokens to user and get response
-			err = p.SendJSONRequest("POST", APIProvideNewTokens, nil, &newTokensMap, &resp, false)
+			err = p.SendJSONRequest("POST", APIProvideNewTokens, nil, &newTokensRange, &resp, true)
 			if err != nil {
 				c.log.Error("Failed to provide new tokens to user", userDID, "err", err)
 				// remove assigned tokens, if any
@@ -394,9 +402,44 @@ func (c *Core) startTokenAssignmentWorker() {
 			}
 
 			// TODO : add user to failed-users table, in case the user does not receive new tokens
-			
+
 			// remove user from queue
 			c.tokenAssignmentManager.removeUserFromQueue(userDID)
 		}
 	}()
+}
+
+// verify user balance and return the total RBT amount user needs to be allocated
+func (c *Core) UserBalanceVerification(userDID string, p *ipfsport.Peer) (int, error) {
+	// get user balance
+	var balanceByUser *model.BasicResponse
+	err := p.SendJSONRequest("GET", APIRequestRBTBalance, nil, nil, &balanceByUser, true)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get RBT balance of user : %s; err : ", userDID, err)
+		c.log.Error(errMsg)
+		return -1, fmt.Errorf("%v", errMsg)
+	}
+	userAccInfo := balanceByUser.Result.(model.DIDAccountInfo)
+	// sum of all current holdings of user
+	totalUserBalance := userAccInfo.RBTAmount + userAccInfo.LockedRBT + userAccInfo.PledgedRBT + userAccInfo.CommittedRBT
+
+	// get sum of all current holdings of user in Fullnode DB
+	totalUserBalanceByFullnode, err := c.CountUserTotalRbtHolding(userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to calculate RBT balance of user : %s; err : ", userDID, err)
+		c.log.Error(errMsg)
+		return -1, fmt.Errorf("%v", errMsg)
+	}
+
+	// verify if the user holdings sum matches with fullnode's data
+	if totalUserBalance != totalUserBalanceByFullnode {
+		errMsg := fmt.Sprintf("mismatch user RBT balance, user : %s, rbt balance by user : %v, rbt  balance by fullnode : %v", userDID, totalUserBalance, totalUserBalanceByFullnode)
+		c.log.Error(errMsg)
+
+		// TODO : initiate all token sync again
+
+		return -1, fmt.Errorf("%v", errMsg)
+	}
+	// return least integer graeter than total RBT holdings of the user
+	return int(math.Ceil(totalUserBalance)), nil
 }

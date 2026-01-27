@@ -62,8 +62,8 @@ type Token struct {
 	TokenStatus    int       `gorm:"column:token_status;"`
 	TokenStateHash string    `gorm:"column:token_state_hash"`
 	TransactionID  string    `gorm:"column:transaction_id"`
-	Added          bool      `gorm:"column:added"`
-	SyncStatus     int       `gorm:"column:sync_status"`
+	Added          bool      `gorm:"column:added"`       // TODO : remove - not required anymore
+	SyncStatus     int       `gorm:"column:sync_status"` // TODO : remove - not required anymore
 	CreatedAt      time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"column:updated_at;autoUpdateTime"`
 }
@@ -88,18 +88,25 @@ type RBTContent struct {
 }
 
 type NewTokensCount struct {
-	SLNumber        int64   `gorm:"column:sl_number;primaryKey;autoIncrement"`
-	DID             string  `gorm:"column:did"`
-	Level           int     `gorm:"colummn:level"`
-	RangeLowerBound int     `gorm:"column:range_lower_bound"`
-	RangeUpperBound int     `gorm:"column:range_upper_bound"`
-	TokenStatus     int     `gorm:"column:token_status"`
-	PendingAmount   float64 `gorm:"column:pending_amount"`
+	SLNumber        int64  `gorm:"column:sl_number;primaryKey;autoIncrement"`
+	DID             string `gorm:"column:did"`
+	Level           int    `gorm:"colummn:level"`
+	RangeLowerBound int    `gorm:"column:range_lower_bound"`
+	RangeUpperBound int    `gorm:"column:range_upper_bound"`
+	// TokenStatus     int    `gorm:"column:token_status"`
+	// PendingAmount   float64 `gorm:"column:pending_amount"`
 }
 
 func (w *Wallet) CreateToken(t *Token) error {
 	return w.s.Write(TokenStorage, t)
 }
+
+func (w *Wallet) CreateTokenNew(t *Token) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	return w.s.Write(NewTokenStorage, t)
+}
+
 func (w *Wallet) CreateFT(ft *FTToken) error {
 	w.l.Lock()
 	defer w.l.Unlock()
@@ -1821,14 +1828,14 @@ func (w *Wallet) AddDoubleSpentTokenInfo(doubleSpentTokenInfo *model.DoubleSpent
 	return w.fullNodeSQLDB.Write(FullnodeDoubleSpentTokensTable, doubleSpentTokenInfo)
 }
 
-// Store double spent tokens in fullnode DB for later analysis
+// Update double spent tokens in fullnode DB
 func (w *Wallet) UpdateDoubleSpentTokenInfo(doubleSpentTokenInfo *model.DoubleSpentTokenInfo) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	return w.fullNodeSQLDB.Update(FullnodeDoubleSpentTokensTable, &doubleSpentTokenInfo, "token_id=?", doubleSpentTokenInfo.TokenID)
 }
 
-// Store double spent tokens in fullnode DB for later analysis
+// Read double spent tokens from fullnode DB by token id
 func (w *Wallet) ReadDoubleSpentTokenInfo(doubleSpentTokenID string) (*model.DoubleSpentTokenInfo, error) {
 	w.l.Lock()
 	defer w.l.Unlock()
@@ -1839,6 +1846,19 @@ func (w *Wallet) ReadDoubleSpentTokenInfo(doubleSpentTokenID string) (*model.Dou
 		return nil, err
 	}
 	return &doubleSpentTokenInfo, nil
+}
+
+// Read double spent tokens from fullnode DB by owner did
+func (w *Wallet) ReadDoubleSpentTokenInfoByOwner(ownerDID string) ([]model.DoubleSpentTokenInfo, error) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	var doubleSpentTokenInfo []model.DoubleSpentTokenInfo
+	err := w.fullNodeSQLDB.Read(FullnodeDoubleSpentTokensTable, &doubleSpentTokenInfo, "claimed_owner_I=? OR claimed_owner_II=?", ownerDID, ownerDID)
+	if err != nil {
+		w.log.Warn("Failed to read double spent token from table", "err", err)
+		return nil, err
+	}
+	return doubleSpentTokenInfo, nil
 }
 
 // This function is used by fullnode to write all synced RBTs' IPFS content to sqlite table

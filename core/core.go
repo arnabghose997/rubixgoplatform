@@ -68,6 +68,7 @@ const (
 	APIGetTokenStatus               string = "/api/get-token-status"
 	APIRequestNewTokens             string = "/api/request-new-tokens"
 	APIProvideNewTokens             string = "/api/provide-new-tokens"
+	APIRequestRBTBalance            string = "/api/request-rbt-balance"
 )
 
 const (

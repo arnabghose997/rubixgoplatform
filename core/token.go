@@ -102,6 +102,7 @@ func (c *Core) SetupToken() {
 	c.l.AddRoute(setup.APIRecoverLostTokens, "POST", c.recoverLostTokensHandler)
 	c.l.AddRoute(APIRequestNewTokens, "POST", c.newTokensRequest)
 	c.l.AddRoute(APIProvideNewTokens, "POST", c.processNewTokens)
+	c.l.AddRoute(APIRequestRBTBalance, "GET", c.getUserBalanceHandler)
 }
 
 func (c *Core) GetAllTokens(did string, tt string) (*model.TokenResponse, error) {
@@ -168,6 +169,9 @@ func (c *Core) GetAccountInfo(did string) (model.DIDAccountInfo, error) {
 		case wallet.TokenIsPinnedAsService:
 			info.PinnedRBT = info.PinnedRBT + t.TokenValue
 			info.PinnedRBT = floatPrecision(info.PinnedRBT, MaxDecimalPlaces)
+		case wallet.TokenIsCommitted:
+			info.CommittedRBT = info.CommittedRBT + t.TokenValue
+			info.CommittedRBT = floatPrecision(info.CommittedRBT, MaxDecimalPlaces)
 		}
 	}
 	return info, nil
@@ -2818,7 +2822,7 @@ func (c *Core) newTokensRequest(req *ensweb.Request) *ensweb.Result {
 	err := c.l.ParseJSON(req, &userDIDList)
 	if err != nil {
 		c.log.Error("failed to parse new tokens request", "err", err)
-		return c.l.RenderJSON(req, &model.BasicResponse{Status: false, Message: "failed to parse user DID, err :" + err.Error()}, http.StatusOK)
+		return c.l.RenderJSON(req, &model.BasicResponse{Status: false, Message: "failed to parse new tokens request, err :" + err.Error()}, http.StatusOK)
 	}
 
 	for _, userDID := range userDIDList {
@@ -2832,6 +2836,20 @@ func (c *Core) processNewTokens(req *ensweb.Request) *ensweb.Result {
 	resp := &model.BasicResponse{
 		Status: false,
 	}
+
+	did := c.l.GetQuerry(req, "did")
+
+	// parse new tokens map
+	newTokensRange := make([]wallet.NewTokensCount, 0)
+	err := c.l.ParseJSON(req, newTokensRange)
+	if err != nil {
+		c.log.Error("failed to parse new tokens map", "err", err)
+		return c.l.RenderJSON(req, &model.BasicResponse{Status: false, Message: "failed to parse new tokens map, err :" + err.Error()}, http.StatusOK)
+	}
+
+	// craete new tokens, their tokenId and store in DB
+	err = c.createNewTokens(did, newTokensRange)
+
 	// TODO :
 	// 1. parse new tokens
 	// 2. create new tokens and add & pin them to ipfs
@@ -2841,4 +2859,133 @@ func (c *Core) processNewTokens(req *ensweb.Request) *ensweb.Result {
 	resp.Status = true
 	resp.Message = "processed new tokens for DID : "
 	return c.l.RenderJSON(req, resp, http.StatusOK)
+}
+
+// share rbt balance with fullnode
+func (c *Core) getUserBalanceHandler(req *ensweb.Request) *ensweb.Result {
+	did := c.l.GetQuerry(req, "did")
+
+	// count the balance of the corresponding token-status and compare
+	accInfo, err := c.GetAccountInfo(did)
+	if err != nil {
+		c.log.Error("Failed to get account info for DID %v", did)
+		return c.l.RenderJSON(req, &model.BasicResponse{Status: true, Message: "failed to get balance"}, http.StatusOK)
+	}
+
+	return c.l.RenderJSON(req, &model.BasicResponse{Status: true, Message: "got user balance", Result: accInfo}, http.StatusOK)
+}
+
+// create new tokens, and pin them to ipfs
+func (c *Core) createNewTokens(did string, newTokensList []wallet.NewTokensCount) error {
+
+	newTokenValue := 1.0
+	for _, newTokensRange := range newTokensList {
+
+		// levelStr := fmt.Sprintf("%03d", newTokensRange.Level)
+		for i := newTokensRange.RangeLowerBound; i <= newTokensRange.RangeUpperBound; i++ {
+			// create token : level-token_number; levelshould be 3 digits
+			// tokenNumberStr := fmt.Sprintf("%d", i)
+			token := fmt.Sprintf("%03d-%d", newTokensRange.Level, i) // levelStr + "-" + tokenNumberStr
+			c.log.Debug("new token :", token)
+
+			// add new token and get token id
+			fileReader := bytes.NewBuffer([]byte(token))
+			tokenId, err := c.w.Add(fileReader, did, wallet.AddFunc)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to pin token %s; err : %v", token, err)
+				c.log.Error(errMsg)
+				continue
+			}
+
+			// pin new token
+			status, err := c.w.Pin(tokenId, wallet.OwnerRole, did, "NA", "NA", "NA", newTokenValue)
+			if !status || err != nil {
+				errMsg := fmt.Sprintf("failed to pin token %s; err : %v", token, err)
+				c.log.Error(errMsg)
+			}
+
+			// store token id, token value (1.0) and token status in TokensTable
+			tokenInfo := &wallet.Token{
+				TokenID:     tokenId,
+				TokenValue:  newTokenValue,
+				TokenStatus: wallet.TokenIsFree,
+				DID:         did,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
+			}
+			err = c.w.CreateTokenNew(tokenInfo)
+			if err != nil {
+				errMsg := fmt.Sprintf("failed to store token info, token %s; err : %v", token, err)
+				c.log.Error(errMsg)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Core) GetUserAccInfoByFullnode(userDID string) (model.DIDAccountInfo, error) {
+	info := model.DIDAccountInfo{
+		DID: userDID,
+	}
+
+	// this function should be accessible to fullnode only
+	if !c.fullNode {
+		errMsg := fmt.Sprintf("invalid access, not a fullnode")
+		c.log.Error(errMsg)
+		return info, fmt.Errorf("%v", errMsg)
+	}
+
+	rbtList, err := c.w.GetAllRBTbyDID(userDID)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to read user's RBT from table, err : %v", err)
+		c.log.Error(errMsg)
+		return info, fmt.Errorf("%v", errMsg)
+	}
+
+	for _, rbt := range rbtList {
+		switch rbt.TokenStatus {
+		case wallet.TokenIsFree:
+			info.RBTAmount = info.RBTAmount + rbt.TokenValue
+			info.RBTAmount = floatPrecision(info.RBTAmount, MaxDecimalPlaces)
+		case wallet.TokenIsLocked:
+			info.LockedRBT = info.LockedRBT + rbt.TokenValue
+			info.LockedRBT = floatPrecision(info.LockedRBT, MaxDecimalPlaces)
+		case wallet.TokenIsPledged:
+			info.PledgedRBT = info.PledgedRBT + rbt.TokenValue
+			info.PledgedRBT = floatPrecision(info.PledgedRBT, MaxDecimalPlaces)
+		case wallet.TokenIsPinnedAsService:
+			info.PinnedRBT = info.PinnedRBT + rbt.TokenValue
+			info.PinnedRBT = floatPrecision(info.PinnedRBT, MaxDecimalPlaces)
+		case wallet.TokenIsCommitted:
+			info.CommittedRBT = info.CommittedRBT + rbt.TokenValue
+			info.CommittedRBT = floatPrecision(info.CommittedRBT, MaxDecimalPlaces)
+		}
+	}
+	return info, nil
+}
+
+func (c *Core) CountUserTotalRbtHolding(userDID string) (float64, error) {
+	balanceByfullnode, err := c.GetUserAccInfoByFullnode(userDID)
+	if err != nil {
+		c.log.Error(err.Error())
+		return -1, err
+	}
+
+	totalRbt := balanceByfullnode.RBTAmount + balanceByfullnode.LockedRBT + balanceByfullnode.PledgedRBT + balanceByfullnode.CommittedRBT
+
+	// TODO : get double spent tokens as well, check their latest block, predict their token status,
+	// add it to fullnode balance and then compare with user provided balance
+	// doubleSpentTokens, err := c.w.ReadDoubleSpentTokenInfoByOwner(userDID)
+	if err != nil {
+		c.log.Error(err.Error())
+		return -1, err
+	}
+	// TODO :
+	// for _, tokenInfo := range doubleSpentTokens {
+	// latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenInfo.TokenID, tokenInfo.TokenType)
+	// tokenValue = tokenInfo.TokenValue
+	// totalRbtFloat += tokenValue
+	// }
+
+	return totalRbt, nil
 }
