@@ -97,6 +97,10 @@ const (
 	MaxPeerConn uint16 = 1000
 )
 
+const (
+	TokenMigrationSCAddr string = "" // token-migration smart contract address
+)
+
 var dbWriteSem = make(chan struct{}, 1)
 
 type Core struct {

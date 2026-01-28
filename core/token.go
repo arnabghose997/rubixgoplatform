@@ -2923,7 +2923,7 @@ func (c *Core) createNewTokens(did string, newTokensList []wallet.NewTokensCount
 	return nil
 }
 
-func (c *Core) GetUserAccInfoByFullnode(userDID string) (model.DIDAccountInfo, error) {
+func (c *Core) GetUserAccInfoByFullnode(userDID string, oldTokensList *[]OldToken) (model.DIDAccountInfo, error) {
 	info := model.DIDAccountInfo{
 		DID: userDID,
 	}
@@ -2943,6 +2943,11 @@ func (c *Core) GetUserAccInfoByFullnode(userDID string) (model.DIDAccountInfo, e
 	}
 
 	for _, rbt := range rbtList {
+		*oldTokensList = append(*oldTokensList,
+			OldToken{
+				TokenId:    rbt.TokenID,
+				TokenValue: rbt.TokenValue,
+			})
 		switch rbt.TokenStatus {
 		case wallet.TokenIsFree:
 			info.RBTAmount = info.RBTAmount + rbt.TokenValue
@@ -2964,11 +2969,12 @@ func (c *Core) GetUserAccInfoByFullnode(userDID string) (model.DIDAccountInfo, e
 	return info, nil
 }
 
-func (c *Core) CountUserTotalRbtHolding(userDID string) (float64, error) {
-	balanceByfullnode, err := c.GetUserAccInfoByFullnode(userDID)
+func (c *Core) CountUserTotalRbtHolding(userDID string) (float64, []OldToken, error) {
+	oldTokensList := make([]OldToken, 0)
+	balanceByfullnode, err := c.GetUserAccInfoByFullnode(userDID, &oldTokensList)
 	if err != nil {
 		c.log.Error(err.Error())
-		return -1, err
+		return -1, nil, err
 	}
 
 	totalRbt := balanceByfullnode.RBTAmount + balanceByfullnode.LockedRBT + balanceByfullnode.PledgedRBT + balanceByfullnode.CommittedRBT
@@ -2978,14 +2984,19 @@ func (c *Core) CountUserTotalRbtHolding(userDID string) (float64, error) {
 	// doubleSpentTokens, err := c.w.ReadDoubleSpentTokenInfoByOwner(userDID)
 	if err != nil {
 		c.log.Error(err.Error())
-		return -1, err
+		return -1, nil, err
 	}
 	// TODO :
 	// for _, tokenInfo := range doubleSpentTokens {
 	// latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenInfo.TokenID, tokenInfo.TokenType)
 	// tokenValue = tokenInfo.TokenValue
 	// totalRbtFloat += tokenValue
+	// oldTokensList = append(oldTokensList,
+	// OldToken{
+	// 	TokenId:    tokenInfo.TokenID,
+	// 	TokenValue: tokenInfo.TokenValue,
+	// })
 	// }
 
-	return totalRbt, nil
+	return totalRbt, oldTokensList, nil
 }

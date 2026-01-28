@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"runtime"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/rubixchain/rubixgoplatform/core/ipfsport"
 	"github.com/rubixchain/rubixgoplatform/core/model"
+	"github.com/rubixchain/rubixgoplatform/core/wallet"
+	"github.com/rubixchain/rubixgoplatform/setup"
 )
 
 // DynamicTxnProcessor handles adaptive concurrent transaction processing
@@ -50,6 +53,19 @@ type DynamicTxnProcessor struct {
 
 	// Resource monitor
 	resourceMonitor *ResourceMonitor
+}
+
+// old tokens list to publish in smart contract
+type OldToken struct {
+	TokenId    string  `json:"token_id"`
+	TokenValue float64 `json:"token_value"`
+}
+
+// token migration data
+type TokenMigrationData struct {
+	UserDID          string                 `json:"did"`
+	OldTokens        []OldToken             `json:"old_tokens"`
+	NewTokenSequence []wallet.NewTokenRange `json:"new_token_sequence"`
 }
 
 // Initialize dynamic transaction processor
@@ -371,14 +387,14 @@ func (c *Core) startTokenAssignmentWorker() {
 			}
 			defer p.Close()
 
-			userTotalRbt, err := c.UserBalanceVerification(userDID, p)
+			userTotalRbt, oldTokensList, err := c.UserBalanceVerification(userDID, p)
 			if err != nil {
 				// remove user from queue
 				c.tokenAssignmentManager.removeUserFromQueue(userDID)
 				continue
 			}
 			// check user balance and assign new tokens to user
-			newTokensRange, err := c.w.AssignNewTokensToUser(userDID, userTotalRbt)
+			newTokens, err := c.w.AssignNewTokensToUser(userDID, userTotalRbt)
 			if err != nil {
 				errMsg := fmt.Sprintf("assignment failed for %s: %v", userDID, err)
 				c.log.Error(errMsg)
@@ -391,7 +407,7 @@ func (c *Core) startTokenAssignmentWorker() {
 
 			var resp *model.BasicResponse
 			// send new tokens to user and get response
-			err = p.SendJSONRequest("POST", APIProvideNewTokens, nil, &newTokensRange, &resp, true)
+			err = p.SendJSONRequest("POST", APIProvideNewTokens, nil, &newTokens, &resp, true)
 			if err != nil {
 				c.log.Error("Failed to provide new tokens to user", userDID, "err", err)
 				// remove assigned tokens, if any
@@ -403,32 +419,43 @@ func (c *Core) startTokenAssignmentWorker() {
 
 			// TODO : add user to failed-users table, in case the user does not receive new tokens
 
+			// execute token-migration smart contract with old-new tokens mapping
+			err = c.ExecuteTokenMigrationSC("", userDID, p, oldTokensList, newTokens)
+			if err != nil {
+				c.log.Error("Failed to provide new tokens to user", userDID, "err", err)
+				// // remove assigned tokens, if any
+				// c.w.RemoveUsersNewTokenAssignment(userDID)  // do not remove token assignment once it is piblished / shared
+				// remove user from queue
+				c.tokenAssignmentManager.removeUserFromQueue(userDID)
+				continue
+			}
+
 			// remove user from queue
 			c.tokenAssignmentManager.removeUserFromQueue(userDID)
 		}
 	}()
 }
 
-// verify user balance and return the total RBT amount user needs to be allocated
-func (c *Core) UserBalanceVerification(userDID string, p *ipfsport.Peer) (int, error) {
+// verify user balance and return the total RBT amount user needs to be allocated, and the list of old tokens of user
+func (c *Core) UserBalanceVerification(userDID string, p *ipfsport.Peer) (int, []OldToken, error) {
 	// get user balance
 	var balanceByUser *model.BasicResponse
 	err := p.SendJSONRequest("GET", APIRequestRBTBalance, nil, nil, &balanceByUser, true)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get RBT balance of user : %s; err : ", userDID, err)
+		errMsg := fmt.Sprintf("Failed to get RBT balance of user : %s; err : %v", userDID, err)
 		c.log.Error(errMsg)
-		return -1, fmt.Errorf("%v", errMsg)
+		return -1, nil, fmt.Errorf("%v", errMsg)
 	}
 	userAccInfo := balanceByUser.Result.(model.DIDAccountInfo)
 	// sum of all current holdings of user
 	totalUserBalance := userAccInfo.RBTAmount + userAccInfo.LockedRBT + userAccInfo.PledgedRBT + userAccInfo.CommittedRBT
 
 	// get sum of all current holdings of user in Fullnode DB
-	totalUserBalanceByFullnode, err := c.CountUserTotalRbtHolding(userDID)
+	totalUserBalanceByFullnode, oldTokensList, err := c.CountUserTotalRbtHolding(userDID)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to calculate RBT balance of user : %s; err : ", userDID, err)
+		errMsg := fmt.Sprintf("Failed to calculate RBT balance of user : %s; err : %v", userDID, err)
 		c.log.Error(errMsg)
-		return -1, fmt.Errorf("%v", errMsg)
+		return -1, nil, fmt.Errorf("%v", errMsg)
 	}
 
 	// verify if the user holdings sum matches with fullnode's data
@@ -438,8 +465,58 @@ func (c *Core) UserBalanceVerification(userDID string, p *ipfsport.Peer) (int, e
 
 		// TODO : initiate all token sync again
 
-		return -1, fmt.Errorf("%v", errMsg)
+		return -1, nil, fmt.Errorf("%v", errMsg)
 	}
 	// return least integer graeter than total RBT holdings of the user
-	return int(math.Ceil(totalUserBalance)), nil
+	return int(math.Ceil(totalUserBalance)), oldTokensList, nil
+}
+
+// fullnode should execute this contract for each user, with user's old and new tokens details
+func (c *Core) ExecuteTokenMigrationSC(fullnodeDID, userDID string, p *ipfsport.Peer, oldTokensList []OldToken, newTokensList []wallet.NewTokensCount) error {
+	if !c.fullNode {
+		errMsg := fmt.Sprintf("invalid access, not a fullnode")
+		c.log.Error(errMsg)
+		return fmt.Errorf("%v", errMsg)
+	}
+
+	// prepare new tokens data
+	newTokensRange := make([]wallet.NewTokenRange, 0)
+	for _, newTokenInfo := range newTokensList {
+		newTokensRange = append(newTokensRange, wallet.NewTokenRange{
+			Level:      newTokenInfo.Level,
+			LowerBound: newTokenInfo.RangeLowerBound,
+			UpperBound: newTokenInfo.RangeUpperBound,
+		})
+	}
+
+	// prepare old & new tokens data in string / json to execute sc
+	tokenMigrationData := TokenMigrationData{
+		UserDID:          userDID,
+		OldTokens:        oldTokensList,
+		NewTokenSequence: newTokensRange,
+	}
+
+	dataBytes, err := json.MarshalIndent(tokenMigrationData, "", " ")
+	if err != nil {
+		c.log.Error("Failed to marshal token-migration data", "err", err)
+		return err
+	}
+
+	// execute token-migration smart contract with user data
+	executeReq := &model.ExecuteSmartContractRequest{
+		SmartContractToken: TokenMigrationSCAddr,
+		ExecutorAddress:    fullnodeDID,
+		QuorumType:         2,
+		Comment:            "token migration of DID : " + userDID,
+		SmartContractData:  string(dataBytes),
+	}
+	
+	var basicResponse model.BasicResponse
+	err = p.SendJSONRequest("POST", setup.APIExecuteSmartContract, nil, executeReq, &basicResponse, false, time.Minute*2)
+	if err != nil {
+		c.log.Error("Failed to Execute token-migration Smart Contract", "err", err)
+		return err
+	}
+
+	return nil
 }
