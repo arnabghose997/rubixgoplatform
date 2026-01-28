@@ -13,6 +13,11 @@ import (
 	"github.com/rubixchain/rubixgoplatform/wrapper/uuid"
 )
 
+type ContractExecuteResponse struct {
+	TransactionId string `json:"transaction_id"`
+	BlockId       string `json:"block_id"`
+}
+
 func (c *Core) DeploySmartContractToken(reqID string, deployReq *model.DeploySmartContractRequest) {
 	br := c.deploySmartContractToken(reqID, deployReq)
 	dc := c.GetWebReq(reqID)
@@ -350,11 +355,16 @@ func (c *Core) executeSmartContractToken(reqID string, executeReq *model.Execute
 	if err != nil {
 		c.log.Error("Failed to publish smart contract executed info")
 	} */
+	contractResult := ContractExecuteResponse{
+		TransactionId: txnDetails.TransactionID,
+		BlockId:       txnDetails.BlockID,
+	}
+	c.log.Debug("Smart Contract Execution Result", "result", contractResult)
 
 	c.log.Info("Smart Contract Token Executed successfully", "duration", dif)
 	resp.Status = true
 	msg := fmt.Sprintf("Smart Contract Token Executed successfully in %v", dif)
 	resp.Message = msg
-	resp.Result = txnDetails.TransactionID
+	resp.Result = contractResult
 	return resp
 }
