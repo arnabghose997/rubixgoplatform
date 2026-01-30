@@ -126,7 +126,7 @@ func (w *Wallet) GetLatestBlockBeforeTransaction(tokenID string, txID string, to
 	}
 
 	// Get all blocks for this token
-	prefix := tcsPrefix(tokenType, tokenID)
+	prefix := tcsPrefix(tokenType, tokenID, "")
 	iter := db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 	defer iter.Release()
 

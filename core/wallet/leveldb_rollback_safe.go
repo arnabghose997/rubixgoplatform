@@ -252,7 +252,7 @@ func (w *Wallet) VerifyTokenChainIntegrity(tokenID string, tokenType int) error 
 		return fmt.Errorf("failed to get chain DB for token type %d", tokenType)
 	}
 
-	prefix := tcsPrefix(tokenType, tokenID)
+	prefix := tcsPrefix(tokenType, tokenID, "")
 	iter := db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 	defer iter.Release()
 

@@ -190,7 +190,7 @@ func (c *Core) processTransferToken(newEvent *model.PubSubTxnInfo, txnBlock *blo
 			return fmt.Errorf("publisher DID mismatch for token generation: expected %s, got %s", currentOwner, newEvent.PublisherDID)
 		}
 
-		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock); err != nil {
+		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock, ""); err != nil {
 			return fmt.Errorf("failed to add generated block to token chain, err: %v", err)
 		}
 		if err := c.AddTokenContentToPSQL(tokenId, newEvent.AssetType); err != nil {
@@ -226,7 +226,7 @@ func (c *Core) processRegularTransfer(newEvent *model.PubSubTxnInfo, txnBlock *b
 	txnBlockOwner := txnBlock.GetOwner()
 
 	if currentBlockNumber != 0 {
-		latestTokenBlock := c.w.GetFullNodeLatestTokenBlock(tokenId, tokenType)
+		latestTokenBlock := c.w.GetFullNodeLatestTokenBlock(tokenId, tokenType, "")
 		if latestTokenBlock == nil {
 			//connect to publisher and fetch complete token chain
 			p, err := c.getPeer(newEvent.PublisherDID)
@@ -410,7 +410,7 @@ func (c *Core) processRegularTransfer(newEvent *model.PubSubTxnInfo, txnBlock *b
 			LatestBlock: txnBlock,
 		}
 
-		genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenId, tokenType)
+		genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenId, tokenType, "")
 		if genesisBlock != nil {
 			receivedBlock.GenesisBlock = genesisBlock
 		}
@@ -422,7 +422,7 @@ func (c *Core) processRegularTransfer(newEvent *model.PubSubTxnInfo, txnBlock *b
 			receivedBlock.GenesisBlock = txnBlock
 		}
 
-		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock); err != nil {
+		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock, ""); err != nil {
 			return fmt.Errorf("failed to add block to token chain: %v", err)
 		}
 		// update block height if required
@@ -453,7 +453,7 @@ func (c *Core) processContractTransaction(newEvent *model.PubSubTxnInfo, txnBloc
 		}
 
 		// Add block directly to token chain for new deployments
-		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock); err != nil {
+		if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock, ""); err != nil {
 			return fmt.Errorf("failed to add contract block to token chain: %v", err)
 		}
 
@@ -488,7 +488,7 @@ func (c *Core) processContractTransaction(newEvent *model.PubSubTxnInfo, txnBloc
 func (c *Core) processContractExecution(newEvent *model.PubSubTxnInfo, txnBlock *block.Block, tokenId string) error {
 	// Get token type and latest block for validation
 	tokenType := txnBlock.GetTokenType(tokenId)
-	latestTokenBlock := c.w.GetFullNodeLatestTokenBlock(tokenId, tokenType)
+	latestTokenBlock := c.w.GetFullNodeLatestTokenBlock(tokenId, tokenType, "")
 	if latestTokenBlock == nil {
 		//connect to publisher and fetch complete token chain
 		p, err := c.getPeer(newEvent.PublisherDID)
@@ -540,7 +540,7 @@ func (c *Core) processContractExecution(newEvent *model.PubSubTxnInfo, txnBlock 
 	}
 
 	// Add validated block to contract chain
-	if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock); err != nil {
+	if err := c.w.AddFullNodeTokenBlock(tokenId, txnBlock, ""); err != nil {
 		return fmt.Errorf("failed to add contract execution block to chain: %v", err)
 	}
 	currentOwner := txnBlock.GetOwner()
@@ -554,7 +554,7 @@ func (c *Core) processContractExecution(newEvent *model.PubSubTxnInfo, txnBlock 
 	receivedBlock := ReceivedBlock{
 		LatestBlock: txnBlock,
 	}
-	genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenId, tokenType)
+	genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenId, tokenType, "")
 	if genesisBlock != nil {
 		receivedBlock.GenesisBlock = genesisBlock
 	}

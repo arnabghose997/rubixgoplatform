@@ -770,7 +770,7 @@ func Run(args []string) {
 	flag.BoolVar(&cmd.publishTokenChainDetails, "publishTokenchain", false, "Publish tokenchain details to pubsub")
 	flag.BoolVar(&cmd.fullNode, "fullnode", false, "receive all published transactions and tokenchain details")
 	flag.BoolVar(&cmd.dumpFullnodeTokenChain, "fullnodetoken", false, "dump tokenchain from fullnode storage")
-	flag.StringVar(&cmd.assetType, "assettype", "rbt", "DID of the signer")
+	flag.StringVar(&cmd.assetType, "assettype", "rbt", "Asset Type")
 	flag.StringVar(&cmd.pgsqlDBName, "pgsqlDBName", "", "Postgress Tokens database name")
 	flag.StringVar(&cmd.pgsqlDBUserName, "pgsqlDBUserName", "myuser", "Postgress Tokens Database username")
 	flag.StringVar(&cmd.pgsqlDBPassword, "pgsqlDBPassword", "mypassword", "Postgress Tokens Database password")

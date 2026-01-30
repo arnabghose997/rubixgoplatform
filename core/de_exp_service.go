@@ -106,7 +106,7 @@ func (c *Core) GetTokenchain(TokenID string, TokenType string) *model.GetTokenCh
 
 	// Fetch token chain blocks iteratively
 	for {
-		blks, nextID, err := c.w.GetAllFullNodeTokenBlocks(TokenID, c.TokenType(tokenTypeString), blockID)
+		blks, nextID, err := c.w.GetAllFullNodeTokenBlocks(TokenID, c.TokenType(tokenTypeString), blockID, "")
 		if err != nil {
 			getTokenChainReply.Message = fmt.Sprintf("Failed to get %s token chain blocks", TokenType)
 			c.log.Error(getTokenChainReply.Message, "err", err)

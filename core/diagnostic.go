@@ -77,25 +77,25 @@ func (c *Core) DumpFullnodeTokenChain(dr *model.TCDumpRequest) *model.TCDumpRepl
 			ts = PartString
 		}
 
-		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(ts), dr.BlockID)
+		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(ts), dr.BlockID, dr.PrefixDID)
 		if err != nil {
 			ds.Message = "Failed to get token chain block"
 			return ds
 		}
 	case "ft", "FT":
-		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(FTString), dr.BlockID)
+		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(FTString), dr.BlockID, dr.PrefixDID)
 		if err != nil {
 			ds.Message = "Failed to get token chain block"
 			return ds
 		}
 	case "nft", "NFT":
-		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(NFTString), dr.BlockID)
+		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(NFTString), dr.BlockID, dr.PrefixDID)
 		if err != nil {
 			ds.Message = "Failed to get token chain block"
 			return ds
 		}
 	case "sc", "SC", "smartcontract", "SmartContract":
-		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(SmartContractString), dr.BlockID)
+		blks, nextID, err = c.w.GetAllFullNodeTokenBlocks(dr.Token, c.TokenType(SmartContractString), dr.BlockID,dr.PrefixDID)
 		if err != nil {
 			ds.Message = "Failed to get token chain block"
 			return ds

@@ -5,6 +5,7 @@ type TCDumpRequest struct {
 	BlockID       string `json:"block_id"`
 	FullnodeToken bool   `json:"fullnode_token"`
 	AssetType     string `json:"asset_type"`
+	PrefixDID     string `json:"prefix_did"`
 }
 
 type TCDumpReply struct {

@@ -87,15 +87,6 @@ type PubSubEnvelope struct {
 	Data json.RawMessage `json:"data"`
 }
 
-//	type SendTokenDetailsInfo struct {
-//		TokenChainLength uint64 `json:"tc_length"`
-//		TokenType        int    `json:"token_type"`
-//		Token            string `json:"token"`
-//	}
-// type AllTokenChainDetails struct {
-// 	TokenTCLengthDetails map[string]model.SendTokenDetailsInfo `json:"token_tc_details"`
-// }
-
 func (c *Core) SetupToken() {
 	c.l.AddRoute(APISyncTokenChain, "POST", c.syncTokenChain)
 	c.l.AddRoute(APISyncGenesisAndLatestBlock, "POST", c.syncGenesisAndLatestBlock)
@@ -677,7 +668,7 @@ func (c *Core) processReceivedTokenDetails(event model.TokenChainDetailsEvent) {
 			}
 		}
 
-		latestBlock := c.w.GetFullNodeLatestTokenBlock(detail.Token, detail.TokenType)
+		latestBlock := c.w.GetFullNodeLatestTokenBlock(detail.Token, detail.TokenType, "")
 		existingBlockOwnerDID := latestBlock.GetOwner()
 		var latestBlockHeight uint64
 		var latestBlockID, txnID, latestBlockHash string
@@ -727,7 +718,7 @@ func (c *Core) processReceivedTokenDetails(event model.TokenChainDetailsEvent) {
 
 			// currentOwner = latestBlock.GetOwner()
 			txnID = latestBlock.GetTid()
-			genesisBlock = c.w.GetFullNodeGenesisTokenBlock(detail.Token, detail.TokenType)
+			genesisBlock = c.w.GetFullNodeGenesisTokenBlock(detail.Token, detail.TokenType, "")
 			//if it is a part RBT Token, check how many child tokens exist for its parent token, if there are more than 2 add it in a table
 			if detail.AssetType == RBTTokenType {
 				if genesisBlock != nil {
@@ -1437,7 +1428,7 @@ func (c *Core) syncTokenChainFrom(p *ipfsport.Peer, pblkID string, token string,
 func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo TokenSyncInfo) error {
 	var err error
 
-	blk := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType)
+	blk := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType, "")
 	if blk != nil {
 		_, err = blk.GetBlockNumber(tokenSyncInfo.TokenID)
 		if err != nil {
@@ -1496,8 +1487,9 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 				c.log.Error("Failed to add token chain block, invalid block", "token", tokenSyncInfo.TokenID)
 				return fmt.Errorf("failed to add token chain block, invalid block")
 			}
+
 			//CHECK1: check previous blockID of the block,  which we are going to add, it should be same as the latestBlockID which is alredy there for all nongenesis blocks
-			latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType)
+			latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType, "")
 			var latestBlockID string
 			if latestBlock != nil {
 				latestBlockID, err = latestBlock.GetBlockID(tokenSyncInfo.TokenID)
@@ -1555,7 +1547,7 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 			incomingBlkID, err := blk.GetBlockID(tokenSyncInfo.TokenID)
 			c.log.Debug("**Entering into signature check for the blkID****", incomingBlkID)
 			incomingBlkType := blk.GetTransType()
-			//For Fexer DIDs which were having unpledge blocks, signature checks are failing so thats why we are avoiding signature checks for unpledge blocks
+			//For Fexer DIDs which were having unpledge blocks, signature checks are failing so thats why we are avoiding signature checks for unpledge blocks and initial syncing mode
 			if incomingBlkType != block.TokenUnpledgedType {
 				valid, err := c.validateSigner(blk, "", p)
 				if !valid || err != nil {
@@ -1565,7 +1557,7 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 			}
 
 			//if all checks pass, add it to the levelDB.
-			err = c.w.AddFullNodeTokenBlock(tokenSyncInfo.TokenID, blk)
+			err = c.w.AddFullNodeTokenBlock(tokenSyncInfo.TokenID, blk, "")
 			if err != nil {
 				c.log.Error("Failed to add token chain block, syncing failed", "err", err, "token", tokenSyncInfo.TokenID)
 				return fmt.Errorf("failed to add token chain block, syncing failed: err=%v, token=%s",
@@ -1581,14 +1573,14 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 		syncReq.BlockID = trep.NextBlockID
 	}
 
-	latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType)
+	latestBlock := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType, "")
 	if latestBlock == nil {
 		errMsg := fmt.Sprintf("failed to add synced token blocks of token : %v", tokenSyncInfo.TokenID)
 		c.log.Error(errMsg)
 		return fmt.Errorf(errMsg)
 	}
 
-	genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType)
+	genesisBlock := c.w.GetFullNodeGenesisTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType, "")
 
 	if genesisBlock == nil {
 
@@ -1603,7 +1595,7 @@ func (c *Core) SyncFullTokenChainForFullNode(p *ipfsport.Peer, tokenSyncInfo Tok
 	var latestBlockHeight uint64
 
 	// syncStatus := wallet.SyncCompleted
-	latestBlockAfterSync := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType)
+	latestBlockAfterSync := c.w.GetFullNodeLatestTokenBlock(tokenSyncInfo.TokenID, tokenSyncInfo.TokenType, "")
 	if latestBlockAfterSync != nil {
 		ownerDid = latestBlockAfterSync.GetOwner()
 		transactionID = latestBlockAfterSync.GetTid()
