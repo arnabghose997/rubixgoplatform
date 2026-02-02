@@ -12,6 +12,13 @@ import (
 	"github.com/rubixchain/rubixgoplatform/core/wallet"
 )
 
+type SyncMode int
+
+const (
+	TxnBlockSync SyncMode = iota
+	InitialSync
+)
+
 // Enhanced subscription setup with error handling
 func (c *Core) SubscribeTxnSetup() {
 	// Initialize the transaction processor
@@ -678,4 +685,39 @@ func (c *Core) processIncomingTransactionHistory(txns []model.FullNodeTxnHistory
 	}
 
 	c.log.Info("Stored transaction history batch", "count", len(txns))
+}
+
+func (c *Core) HandleCheckFailure(
+	mode SyncMode,
+	tokenID string,
+	blk block.Block,
+	checkName string,
+	err error,
+	tokentype int,
+	prefixDID string,
+) error {
+	if mode == TxnBlockSync {
+		// existing behavior → stop immediately
+		return err
+	}
+
+	// InitialSync behavior
+	blockNum, _ := blk.GetBlockNumber(tokenID)
+
+	// 1. Note down corrupted block
+	c.log.Warn("Corrupted token block detected",
+		"token", tokenID,
+		"blockNumber", blockNum,
+		"check", checkName,
+		"err", err,
+	)
+
+	// Assume these exist as you mentioned
+	_ = c.w.AddMissingOrWrongBlockNumber(tokenID, blockNum)
+
+	// 2. Copy token chain till this block & add to leveldb
+	_ = c.w.CopyFullNodeTokenChainToDIDPrefix(tokentype, tokenID, prefixDID)
+
+	// 3. DO NOT stop execution
+	return nil
 }

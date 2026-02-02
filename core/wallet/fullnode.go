@@ -172,3 +172,62 @@ func (w *Wallet) addFullNodeMissingBlock(token string, b *block.Block, prefixDID
 		return err
 	}
 }
+
+func (w *Wallet) CopyFullNodeTokenChainToDIDPrefix(tt int, token string, prefixDID string) error {
+
+	if prefixDID == "" {
+		return fmt.Errorf("prefixDID cannot be empty")
+	}
+
+	db := w.fullNodeStorage
+	if db == nil {
+		return fmt.Errorf("fullnode storage is nil")
+	}
+
+	// Iterate ONLY over old-style keys (no DID prefix)
+	iter := db.NewIterator(
+		util.BytesPrefix([]byte(tcsPrefix(tt, token, ""))),
+		nil,
+	)
+	defer iter.Release()
+
+	for iter.Next() {
+		oldKey := string(iter.Key())
+
+		// Skip if this key already has DID prefix
+		if strings.HasPrefix(oldKey, prefixDID+"-") {
+			continue
+		}
+
+		// Construct new DID-based key
+		newKey := tcsKeyDID(oldKey, prefixDID)
+
+		// If DID-key already exists → skip
+		exists, err := db.Has([]byte(newKey), nil)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+
+		// Copy value safely
+		v := iter.Value()
+		blk := make([]byte, len(v))
+		copy(blk, v)
+
+		// Write DID-key without touching old key
+		db.l.Lock()
+		err = db.Put([]byte(newKey), blk, nil)
+		db.l.Unlock()
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := iter.Error(); err != nil {
+		return err
+	}
+
+	return nil
+}
