@@ -2580,12 +2580,12 @@ func (c *Core) connectQuorum(cr *ConensusRequest, addr string, qt int, sc *contr
 		return
 	}
 
-	if !cresp.Status {
-		c.log.Error("Failed to get consensus", "msg", cresp.Message, "|| crep is ", cresp)
-		c.finishConsensus(cr.ReqID, qt, p, false, "", nil, nil)
-		return
-	}
-	c.finishConsensus(cr.ReqID, qt, p, true, cresp.Hash, cresp.ShareSig, cresp.PrivSig)
+	// if !cresp.Status {
+	c.log.Error("Failed to get consensus", "msg", cresp.Message, "|| crep is ", cresp)
+	c.finishConsensus(cr.ReqID, qt, p, false, "", nil, nil)
+	return
+	// }
+	// c.finishConsensus(cr.ReqID, qt, p, true, cresp.Hash, cresp.ShareSig, cresp.PrivSig)
 }
 
 func (c *Core) pledgeQuorumToken(cr *ConensusRequest, sc *contract.Contract, tid string, dc did.DIDCrypto) (*block.Block, error) {
