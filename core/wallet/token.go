@@ -1503,9 +1503,14 @@ func (w *Wallet) AddSyncedRBTToTable(t *SyncedRBT) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	err := w.fullNodeSQLDB.Write(FullNodeRBTTable, t)
-	// if err == nil {
-	// 	go w.notifyTokenUpdate(FullNodeRBTTable, t, "CREATE")
-	// }
+	return err
+}
+
+// add new tokens to new RBT table
+func (w *Wallet) AddNewRBTToFullnodeTable(t *SyncedRBT) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	err := w.fullNodeSQLDB.Write(FullnodeNewRBTTable, t)
 	return err
 }
 
@@ -1514,9 +1519,6 @@ func (w *Wallet) AddSyncedFTToTable(t *SyncedFT) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	err := w.fullNodeSQLDB.Write(FullNodeFTTable, t)
-	// if err == nil {
-	// 	go w.notifyTokenUpdate(FullNodeFTTable, t, "CREATE")
-	// }
 	return err
 }
 
@@ -1525,9 +1527,6 @@ func (w *Wallet) AddSyncedNFTToTable(t *SyncedNFT) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	err := w.fullNodeSQLDB.Write(FullNodeNFTTable, t)
-	// if err == nil {
-	// 	go w.notifyTokenUpdate(FullNodeNFTTable, t, "CREATE")
-	// }
 	return err
 }
 
@@ -1535,9 +1534,6 @@ func (w *Wallet) AddSyncedSmartContractToTable(t *SyncedSmartContract) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	err := w.fullNodeSQLDB.Write(FullNodeSmartContractTable, t)
-	// if err == nil {
-	// 	go w.notifyTokenUpdate(FullNodeSmartContractTable, t, "CREATE")
-	// }
 	return err
 }
 
@@ -1545,9 +1541,6 @@ func (w *Wallet) AddFailedTokensToTable(t *model.FailedToSyncTokenDetailsInfo) e
 	w.l.Lock()
 	defer w.l.Unlock()
 	err := w.fullNodeSQLDB.Write(FullNodeFailedToSyncTokens, t)
-	// if err == nil {
-	// 	go w.notifyTokenUpdate(FullNodeFailedToSyncTokens, t, "CREATE")
-	// }
 	return err
 }
 
@@ -1997,7 +1990,7 @@ func (w *Wallet) ReadUsersNewTokensRange(userDID string) ([]NewTokensCount, erro
 	// w.l.Lock()
 	// defer w.l.Unlock()
 	var newTokensCount []NewTokensCount
-	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
+	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensMapping, &newTokensCount, "owner_did=?", userDID)
 	if err != nil {
 		return nil, err
 	}
@@ -2009,7 +2002,7 @@ func (w *Wallet) ReadNewTokensBySlNum(slNum int64) (NewTokensCount, error) {
 	// w.l.Lock()
 	// defer w.l.Unlock()
 	var newTokensCount NewTokensCount
-	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensTable, &newTokensCount, "sl_number=?", slNum)
+	err := w.fullNodePSQLTokensDB.Read(FullnodeNewTokensMapping, &newTokensCount, "sl_number=?", slNum)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get rbt, err : %v", err)
 		w.log.Warn(errMsg)
@@ -2022,7 +2015,7 @@ func (w *Wallet) ReadNewTokensBySlNum(slNum int64) (NewTokensCount, error) {
 func (w *Wallet) GetNewTokensTableLatestId() int64 {
 	// w.l.Lock()
 	// defer w.l.Unlock()
-	newTokensLatestSlNum := w.fullNodePSQLTokensDB.GetDataCount(FullnodeNewTokensTable, "sl_number!=?", 0)
+	newTokensLatestSlNum := w.fullNodePSQLTokensDB.GetDataCount(FullnodeNewTokensMapping, "sl_number!=?", 0)
 	return newTokensLatestSlNum
 }
 
@@ -2030,7 +2023,7 @@ func (w *Wallet) GetNewTokensTableLatestId() int64 {
 func (w *Wallet) AddNewTokenAssignment(newRow NewTokensCount) error {
 	// w.l.Lock()
 	// defer w.l.Unlock()
-	return w.fullNodePSQLTokensDB.Write(FullnodeNewTokensTable, &newRow)
+	return w.fullNodePSQLTokensDB.Write(FullnodeNewTokensMapping, &newRow)
 }
 
 // This function is used by fullnode to remove assigned new tokens range to user
@@ -2038,7 +2031,7 @@ func (w *Wallet) RemoveUsersNewTokenAssignment(userDID string) error {
 	// w.l.Lock()
 	// defer w.l.Unlock()
 	var newTokensCount []NewTokensCount
-	err := w.fullNodePSQLTokensDB.Delete(FullnodeNewTokensTable, &newTokensCount, "owner_did=?", userDID)
+	err := w.fullNodePSQLTokensDB.Delete(FullnodeNewTokensMapping, &newTokensCount, "owner_did=?", userDID)
 	if err != nil {
 		return err
 	}

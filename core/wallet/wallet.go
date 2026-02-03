@@ -47,7 +47,8 @@ const (
 	FullNodeNFTContentTable        string = "nft_content_table"
 	FullNodeSCContentTable         string = "sc_content_table"
 	FullnodeDoubleSpentTokensTable string = "DoubleSpentTokensTable"
-	FullnodeNewTokensTable         string = "FullnodeNewTokensTable"
+	FullnodeNewTokensMapping       string = "FullnodeNewTokensMapping"
+	FullnodeNewRBTTable            string = "FullnodeNewRBTTable"
 	NewTokenStorage                string = "TokensTable_New"
 )
 
@@ -137,7 +138,7 @@ func InitWallet(s storage.Storage, fullNodeSQLDB storage.Storage, fullNodePSQLTo
 		w.log.Error("Failed to initialize whole token storage", "err", err)
 		return nil, err
 	}
-	err = w.s.Init(NewTokenStorage, &Token{}, true)		
+	err = w.s.Init(NewTokenStorage, &Token{}, true)
 	if err != nil {
 		w.log.Error("Failed to initialize new tokens table", "err", err)
 		return nil, err
@@ -308,7 +309,7 @@ func InitWallet(s storage.Storage, fullNodeSQLDB storage.Storage, fullNodePSQLTo
 			return nil, err
 		}
 
-		err = w.fullNodePSQLTokensDB.Init(FullnodeNewTokensTable, &NewTokensCount{}, true)
+		err = w.fullNodePSQLTokensDB.Init(FullnodeNewTokensMapping, &NewTokensCount{}, true)
 		if err != nil {
 			w.log.Error("failed to initialize FullnodeNewTokensTable storage", "error", err)
 		}

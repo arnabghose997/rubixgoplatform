@@ -419,8 +419,11 @@ func (c *Core) startTokenAssignmentWorker() {
 
 			// TODO : add user to failed-users table, in case the user does not receive new tokens
 
+			// update new token ids in new tokens table
+			
+
 			// execute token-migration smart contract with old-new tokens mapping
-			err = c.ExecuteTokenMigrationSC("", userDID, p, oldTokensList, newTokens)
+			err = c.ExecuteTokenMigrationSC("", userDID, p, oldTokensList, newTokens) // TODO : pass real did of fullnode ^^^^^^^^^^^^^^
 			if err != nil {
 				c.log.Error("Failed to provide new tokens to user", userDID, "err", err)
 				// // remove assigned tokens, if any
@@ -474,7 +477,7 @@ func (c *Core) UserBalanceVerification(userDID string, p *ipfsport.Peer) (int, [
 // fullnode should execute this contract for each user, with user's old and new tokens details
 func (c *Core) ExecuteTokenMigrationSC(fullnodeDID, userDID string, p *ipfsport.Peer, oldTokensList []OldToken, newTokensList []wallet.NewTokensCount) error {
 	if !c.fullNode {
-		errMsg := fmt.Sprintf("invalid access, not a fullnode")
+		errMsg := "invalid access, not a fullnode"
 		c.log.Error(errMsg)
 		return fmt.Errorf("%v", errMsg)
 	}
@@ -510,7 +513,7 @@ func (c *Core) ExecuteTokenMigrationSC(fullnodeDID, userDID string, p *ipfsport.
 		Comment:            "token migration of DID : " + userDID,
 		SmartContractData:  string(dataBytes),
 	}
-	
+
 	var basicResponse model.BasicResponse
 	err = p.SendJSONRequest("POST", setup.APIExecuteSmartContract, nil, executeReq, &basicResponse, false, time.Minute*2)
 	if err != nil {
