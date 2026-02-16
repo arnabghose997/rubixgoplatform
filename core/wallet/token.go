@@ -2226,10 +2226,10 @@ func (w *Wallet) GetLocalTokenNumber() (int, error) {
 	err := w.s.Read(LocalTestTokenInfo, &localTestTokenInfo, "attribute=?", LocalTestTokenInfo_TokenNumber_Attr)
 	if err != nil {
 		if strings.Contains(err.Error(), "no records found") {
-			// Hard coded at 10000
+			
 			tokenLevel := &model.LocalTestTokenInfo{
 				Attribute: LocalTestTokenInfo_TokenLevel_Attr,
-				Value:     10000,
+				Value:     LocalTestTokenInfo_TokenLevel_Value,
 			}
 			err = w.s.Write(LocalTestTokenInfo, tokenLevel)
 			if err != nil {
