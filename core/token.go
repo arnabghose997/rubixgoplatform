@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	ipfsnode "github.com/ipfs/go-ipfs-api"
 	block "github.com/rubixchain/rubixgoplatform/block"
 	"github.com/rubixchain/rubixgoplatform/constants"
 	"github.com/rubixchain/rubixgoplatform/core/ipfsport"
@@ -24,7 +25,6 @@ import (
 	"github.com/rubixchain/rubixgoplatform/token"
 	"github.com/rubixchain/rubixgoplatform/util"
 	"github.com/rubixchain/rubixgoplatform/wrapper/ensweb"
-	ipfsnode "github.com/ipfs/go-ipfs-api"
 )
 
 const defaultBatchSize = 500                             // Tweak according to RAM/network
@@ -87,7 +87,6 @@ type PubSubEnvelope struct {
 	Type string          `json:"type"` // "token" or "txn"
 	Data json.RawMessage `json:"data"`
 }
-
 
 func (c *Core) SetupToken() {
 	c.l.AddRoute(APISyncTokenChain, "POST", c.syncTokenChain)
@@ -166,7 +165,135 @@ func (c *Core) GetAccountInfo(did string) (model.DIDAccountInfo, error) {
 	return info, nil
 }
 
-func (c *Core) GenerateTestTokens(reqID string, num int, did string, startIndex int ) {
+func (c *Core) MintTokens(reqID string, num int, did string, startIndex int) {
+	err := c.mintTokens(reqID, num, did, startIndex)
+	br := model.BasicResponse{
+		Status:  true,
+		Message: "Mainnet tokens generated successfully",
+	}
+	if err != nil {
+		br.Status = false
+		br.Message = err.Error()
+	}
+	dc := c.GetWebReq(reqID)
+	if dc == nil {
+		c.log.Error("Failed to get did channels")
+		return
+	}
+	dc.OutChan <- &br
+}
+
+func (c *Core) mintTokens(reqID string, num int, did string, startIndex int) error {
+	if startIndex < 0 {
+		return fmt.Errorf("startIndex must be >= 0 for mainnet token generation")
+	}
+	dc, err := c.SetupDID(reqID, did)
+	if err != nil {
+		return fmt.Errorf("DID does not exist")
+	}
+
+	startTokenNumber := startIndex
+	if startIndex == 0 {
+		startTokenNumber = 1
+	}
+	finalTokenNumber := startTokenNumber + num
+	currentTime := time.Now()
+
+	for globalIndex := startTokenNumber; globalIndex < finalTokenNumber; globalIndex++ {
+		tokenLevel, numInLevel, err := token.GetMainnetTokenLevelAndNumberForGlobalIndex(globalIndex)
+		if err != nil {
+			c.log.Error("Failed to get token level and number", "globalIndex", globalIndex, "err", err)
+			return err
+		}
+		id := strconv.Itoa(tokenLevel) + "_" + strconv.Itoa(numInLevel)
+
+		gb := &block.GenesisBlock{
+			Info: []block.GenesisTokenInfo{
+				{Token: id, NetworkID: constants.NetworkID_RBT_Mainnet}, // "premint"
+			},
+		}
+		ti := &block.TransInfo{
+			Tokens: []block.TransTokens{
+				{Token: id, TokenType: token.RBTTokenType}, // 0
+			},
+		}
+		tcb := &block.TokenChainBlock{
+			BlockType:    block.TokenGeneratedType,
+			TokenOwner:   did,
+			GenesisBlock: gb,
+			TransInfo:    ti,
+			TokenValue:   floatPrecision(1.0, MaxDecimalPlaces),
+			Version:      constants.BlockVersion,
+			Epoch:        int(currentTime.Unix()),
+		}
+		ctcb := make(map[string]*block.Block)
+		ctcb[id] = nil
+
+		blk := block.CreateNewBlock(ctcb, tcb)
+
+		if blk == nil {
+			c.log.Error("Failed to create new token chain block")
+			return fmt.Errorf("failed to create new token chain block")
+		}
+		err = blk.UpdateSignature(dc)
+		if err != nil {
+			c.log.Error("Failed to update did signature", "err", err)
+			return fmt.Errorf("failed to update did signature")
+		}
+		t := &wallet.Token{
+			TokenID:     id,
+			DID:         did,
+			TokenValue:  1,
+			TokenStatus: wallet.TokenIsFree,
+		}
+		err = c.w.CreateTokenBlock(blk)
+		if err != nil {
+			c.log.Error("Failed to add token chain", "err", err)
+			return err
+		}
+
+		tokenIDBuffer := bytes.NewBufferString(id)
+		tokenHash, err := c.w.Add(tokenIDBuffer, did, wallet.AddFunc, true)
+		if err != nil {
+			return fmt.Errorf("createTokensAtLevel: failed to add token to ipfs: %v, err: %v", id, err)
+		}
+
+		if _, err := c.w.Pin(tokenHash, wallet.OwnerRole, did, "NA", did, "NA", t.TokenValue); err != nil {
+			return fmt.Errorf("createChildTokensAtLevel: failed to pin child token: %v, err: %v", id, err)
+		}
+
+		err = c.w.CreateToken(t)
+		if err != nil {
+			c.log.Error("Failed to create token", "err", err)
+			return err
+		}
+		// publish the transaction in the network with topic : rubix_txns
+		blockHash, err := blk.GetHash()
+		if err != nil {
+			blockHash = ""
+			c.log.Error("failed to get block hash")
+		}
+
+		//Does these transactions needs to be published or not
+		publishingTxn := &model.PubSubTxnInfo{
+			BlockHash:    blockHash,
+			BlockType:    block.TokenGeneratedType,
+			AssetType:    RBTTokenType,
+			PublisherDID: dc.GetDID(),
+			TxnBlock:     blk.GetBlock(),
+		}
+
+		err = c.publishTxn(publishingTxn)
+		if err != nil {
+			c.log.Error("Failed to publish txn", "err", err)
+			return err
+		}
+
+	}
+	return nil
+}
+
+func (c *Core) GenerateTestTokens(reqID string, num int, did string, startIndex int) {
 	err := c.generateTestTokens(reqID, num, did, startIndex)
 	br := model.BasicResponse{
 		Status:  true,
