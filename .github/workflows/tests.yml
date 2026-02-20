@@ -48,14 +48,12 @@ jobs:
 
             - name: Run tests
               run: cd tests && python3 -u ${{ matrix.suite.script }}
-
-            - name: SSH time run
-              if: failure() && matrix.os == 'macos-latest'
-              uses: mxschmitt/action-tmate@v3
+              continue-on-error: ${{ matrix.os == 'macos-latest' }}
 
             - name: Packing Quorum and Non-Quorum node logs
               if: always()
               run: cd tests && python3 -u pack_node_logs.py
+              continue-on-error: ${{ matrix.os == 'macos-latest' }}
 
             - name: Set Timestamp for Node Logs (Unix)
               if: always() && runner.os != 'Windows'
@@ -70,6 +68,7 @@ jobs:
 
             - name: Uploading Quorum and Non-Quorum node logs as Artifacts
               if: always()
+              continue-on-error: ${{ matrix.os == 'macos-latest' }}
               uses: actions/upload-artifact@v4
               with:
                 name: node-logs-${{ runner.os }}-${{ matrix.suite.name }}-${{ env.TIMESTAMP }}
