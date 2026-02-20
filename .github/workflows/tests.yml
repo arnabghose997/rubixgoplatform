@@ -49,6 +49,10 @@ jobs:
             - name: Run tests
               run: cd tests && python3 -u ${{ matrix.suite.script }}
 
+            - name: SSH time
+              if: failure() && matrix.os == 'macos-latest'
+              uses: mxschmitt/action-tmate@v3
+
             - name: Packing Quorum and Non-Quorum node logs
               if: always()
               run: cd tests && python3 -u pack_node_logs.py
