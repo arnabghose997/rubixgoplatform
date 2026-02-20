@@ -49,7 +49,7 @@ jobs:
             - name: Run tests
               run: cd tests && python3 -u ${{ matrix.suite.script }}
 
-            - name: SSH time
+            - name: SSH time run
               if: failure() && matrix.os == 'macos-latest'
               uses: mxschmitt/action-tmate@v3
 
